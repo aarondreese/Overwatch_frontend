@@ -9,11 +9,13 @@
 ## Configuration
 
 1. **Copy Environment File**:
+
    ```bash
    cp .env.example .env.local
    ```
 
 2. **Update Database Credentials** in `.env.local`:
+
    ```env
    DB_SERVER=your_server_name_or_ip
    DB_DATABASE=Overwatch
@@ -32,6 +34,7 @@
 The API endpoints will expect the following tables (create these in your SQL Server database):
 
 ### Core Tables
+
 - **SourceSystems**: Manage source system configurations
 - **Domains**: Domain management
 - **Synonyms**: Synonym mappings
@@ -109,11 +112,13 @@ CREATE TABLE DistributionGroupMembers (
 ## Troubleshooting
 
 1. **Connection Issues**:
+
    - Verify SQL Server is running
    - Check firewall settings (port 1433)
    - Confirm database user has proper permissions
 
 2. **Authentication Issues**:
+
    - For Windows Authentication, use trusted connection
    - For SQL Authentication, ensure user exists and password is correct
 

@@ -33,22 +33,57 @@ const menuItems = [
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-gray-50" style={{minHeight: '100vh', backgroundColor: '#f9fafb'}}>
+    <div
+      className="min-h-screen bg-gray-50"
+      style={{ minHeight: "100vh", backgroundColor: "#f9fafb" }}
+    >
       <Head>
         <title>Overwatch - Data Quality Management</title>
         <meta name="description" content="Data Quality Management Dashboard" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
-      
-      <div className="container mx-auto px-4 py-8" style={{maxWidth: '1280px', margin: '0 auto', padding: '2rem 1rem'}}>
-        <div className="text-center mb-12" style={{textAlign: 'center', marginBottom: '3rem'}}>
-          <h1 className="text-4xl font-bold text-gray-800 mb-4" style={{fontSize: '2.25rem', fontWeight: 'bold', color: '#1f2937', marginBottom: '1rem'}}>Overwatch</h1>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto" style={{fontSize: '1.125rem', color: '#4b5563', maxWidth: '42rem', margin: '0 auto'}}>
+
+      <div
+        className="container mx-auto px-4 py-8"
+        style={{ maxWidth: "1280px", margin: "0 auto", padding: "2rem 1rem" }}
+      >
+        <div
+          className="text-center mb-12"
+          style={{ textAlign: "center", marginBottom: "3rem" }}
+        >
+          <h1
+            className="text-4xl font-bold text-gray-800 mb-4"
+            style={{
+              fontSize: "2.25rem",
+              fontWeight: "bold",
+              color: "#1f2937",
+              marginBottom: "1rem",
+            }}
+          >
+            Overwatch
+          </h1>
+          <p
+            className="text-lg text-gray-600 max-w-2xl mx-auto"
+            style={{
+              fontSize: "1.125rem",
+              color: "#4b5563",
+              maxWidth: "42rem",
+              margin: "0 auto",
+            }}
+          >
             Comprehensive data quality management and monitoring dashboard
           </p>
         </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-6 justify-items-center" style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem', justifyItems: 'center'}}>
+
+        <div
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-6 justify-items-center"
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+            gap: "1.5rem",
+            justifyItems: "center",
+          }}
+        >
           {menuItems.map((item, index) => (
             <Card key={index} {...item} />
           ))}
