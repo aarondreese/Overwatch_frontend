@@ -1,0 +1,20 @@
+// {
+//   "compilerOptions": {
+//     "baseUrl": ".",
+//     "paths": {
+//       "@/components/*": ["components/*"]
+//     }
+//   }
+// }
+
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "#*": ["components/*"],
+      "!*": ["scripts/*"],
+      "^*": ["styles/*"],
+      ">*": ["pages/api/*"]
+    }
+  }
+}
