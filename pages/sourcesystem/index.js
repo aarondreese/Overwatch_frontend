@@ -3,7 +3,7 @@ import { useEffect, useState, useMemo, useCallback } from "react";
 import {
   listSourceSystems,
   updateSourceSystems,
-} from "../api/SourceSystems/index";
+} from "../../lib/client/sourceSystems";
 import { addDomain } from "../api/Domains/index";
 import { addSynonym, updateSynonym } from "../api/Synonyms/index";
 import { useForm } from "react-hook-form";
