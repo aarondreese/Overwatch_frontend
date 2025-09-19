@@ -4,8 +4,8 @@ import {
   listSourceSystems,
   updateSourceSystems,
 } from "../../lib/client/sourceSystems";
-import { addDomain } from "../api/Domains/index";
-import { addSynonym, updateSynonym } from "../api/Synonyms/index";
+import { addDomain } from "../../lib/client/domains";
+import { addSynonym, updateSynonym } from "../../lib/client/synonyms";
 import { useForm } from "react-hook-form";
 
 import {
@@ -171,11 +171,11 @@ export default function Sourcesystem() {
     return selectedSystem.synonyms.filter(
       (synonym) =>
         synonym.synonymName.toLowerCase().includes(searchLower) ||
-        (synonym.tableName &&
-          synonym.tableName.toLowerCase().includes(searchLower)) ||
-        (synonym.columnName &&
-          synonym.columnName.toLowerCase().includes(searchLower)) ||
-        synonym.systemID.toString().includes(searchLower)
+        (synonym.objectName &&
+          synonym.objectName.toLowerCase().includes(searchLower)) ||
+        (synonym.sourceSchema &&
+          synonym.sourceSchema.toLowerCase().includes(searchLower)) ||
+        synonym.id.toString().includes(searchLower)
     );
   }, [selectedSystem?.synonyms, synonymSearchTerm]);
 
@@ -672,10 +672,10 @@ export default function Sourcesystem() {
                               Synonym Name
                             </th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Type
+                              Schema
                             </th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Target
+                              Target Object
                             </th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                               Status
@@ -712,7 +712,7 @@ export default function Sourcesystem() {
                           ) : (
                             filteredSynonyms.map((synonym) => (
                               <tr
-                                key={synonym.systemID}
+                                key={synonym.id}
                                 className="hover:bg-gray-50"
                               >
                                 <td className="px-6 py-4 whitespace-nowrap">
@@ -729,32 +729,26 @@ export default function Sourcesystem() {
                                         {synonym.synonymName}
                                       </div>
                                       <div className="text-sm text-gray-500">
-                                        ID: {synonym.systemID}
+                                        ID: {synonym.id}
                                       </div>
                                     </div>
                                   </div>
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap">
-                                  <span
-                                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                      synonym.columnName
-                                        ? "bg-blue-100 text-blue-800"
-                                        : "bg-green-100 text-green-800"
-                                    }`}
-                                  >
-                                    {synonym.columnName ? "Column" : "Table"}
+                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                    {synonym.sourceSchema}
                                   </span>
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap">
                                   <div className="text-sm text-gray-900">
-                                    {synonym.tableName && (
+                                    {synonym.objectName && (
                                       <div className="font-medium">
-                                        {synonym.tableName}
+                                        {synonym.objectName}
                                       </div>
                                     )}
-                                    {synonym.columnName && (
+                                    {synonym.objectSchema && synonym.objectDb && (
                                       <div className="text-xs text-gray-500">
-                                        {synonym.columnName}
+                                        {synonym.objectSchema}.{synonym.objectDb}
                                       </div>
                                     )}
                                   </div>

@@ -25,26 +25,72 @@ export default async function handler(req, res) {
   }
 }
 
-// GET - List all source systems
+// GET - List all source systems with their domains and synonyms
 async function handleGet(req, res) {
   const query = `
     SELECT 
-      ID as id,
-      SystemName as systemName,
-      LinkedServerName as linkedServerName,
-      DatabaseName as databaseName,
-      DefaultSourceSchema as defaultSourceSchema,
-      DefaultTargetSchema as defaultTargetSchema
-    FROM pow.SourceSystem
-    ORDER BY SystemName
+      ss.ID as id,
+      ss.SystemName as systemName,
+      ss.LinkedServerName as linkedServerName,
+      ss.DatabaseName as databaseName,
+      ss.DefaultSourceSchema as defaultSourceSchema,
+      ss.DefaultTargetSchema as defaultTargetSchema,
+      d.ID as domainId,
+      d.DomainName as domainName,
+      s.SystemID as synonymId,
+      s.Synonym as synonymName,
+      s.SourceSchema as synonymSourceSchema,
+      s.object_name as synonymObjectName
+    FROM pow.SourceSystem ss
+    LEFT JOIN pow.Domain d ON ss.ID = d.SourceSystem_ID
+    LEFT JOIN pow.Synonym s ON ss.ID = s.SourceSystem_Id
+    ORDER BY ss.SystemName, d.DomainName, s.Synonym
   `;
 
   const result = await executeQuery(query);
-  apiResponse.success(
-    res,
-    result.recordset,
-    "Source systems retrieved successfully"
-  );
+  
+  // Group domains and synonyms by source system
+  const systemsMap = new Map();
+  
+  result.recordset.forEach(row => {
+    if (!systemsMap.has(row.id)) {
+      systemsMap.set(row.id, {
+        id: row.id,
+        systemName: row.systemName,
+        linkedServerName: row.linkedServerName,
+        databaseName: row.databaseName,
+        defaultSourceSchema: row.defaultSourceSchema,
+        defaultTargetSchema: row.defaultTargetSchema,
+        domains: [],
+        synonyms: []
+      });
+    }
+    
+    const system = systemsMap.get(row.id);
+    
+    // Add domain if it exists and not already added
+    if (row.domainId && !system.domains.some(d => d.id === row.domainId)) {
+      system.domains.push({
+        id: row.domainId,
+        domainName: row.domainName,
+        sourceSystemId: row.id
+      });
+    }
+    
+    // Add synonym if it exists and not already added
+    if (row.synonymId && !system.synonyms.some(s => s.id === row.synonymId)) {
+      system.synonyms.push({
+        id: row.synonymId,
+        synonymName: row.synonymName,
+        sourceSchema: row.synonymSourceSchema,
+        objectName: row.synonymObjectName,
+        sourceSystemId: row.id
+      });
+    }
+  });
+  
+  const systems = Array.from(systemsMap.values());
+  apiResponse.success(res, systems, "Source systems retrieved successfully");
 }
 
 // POST - Create new source system using stored procedure
