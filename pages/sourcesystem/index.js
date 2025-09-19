@@ -49,8 +49,14 @@ export default function Sourcesystem() {
   } = useForm();
 
   const fetchdata = useCallback(async () => {
-    const data = await listSourceSystems();
-    setSystems((systems) => data);
+    try {
+      const data = await listSourceSystems();
+      console.log("Fetched source systems data:", data);
+      setSystems(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error("Error fetching source systems:", error);
+      setSystems([]);
+    }
   }, []);
 
   const initialLoad = useEffect(() => {
@@ -139,15 +145,20 @@ export default function Sourcesystem() {
   }
 
   const selectedSystem = useMemo(() => {
+    // Safety check: ensure systems is an array before filtering
+    if (!systems || !Array.isArray(systems)) {
+      return null;
+    }
+
     const system = systems.filter((s) => s.id === selectedSystemID);
     console.log("SelectedSystem updated: ", system);
     if (system.length > 0) {
       resetSourceSystemFormData(system[0]);
+      return system[0];
     } else {
       resetSourceSystemFormData({});
+      return null;
     }
-
-    return system[0];
   }, [selectedSystemID, systems, resetSourceSystemFormData]);
 
   // Filter synonyms based on search term

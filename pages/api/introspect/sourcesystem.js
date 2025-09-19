@@ -1,9 +1,9 @@
 // Database introspection endpoint to examine table structure
-import { executeQuery } from '../../../lib/db';
+import { executeQuery } from "../../../lib/db";
 
 export default async function handler(req, res) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ message: 'Method not allowed' });
+  if (req.method !== "GET") {
+    return res.status(405).json({ message: "Method not allowed" });
   }
 
   try {
@@ -21,48 +21,39 @@ export default async function handler(req, res) {
         AND TABLE_NAME = 'SourceSystem'
       ORDER BY ORDINAL_POSITION
     `;
-    
+
     const structureResult = await executeQuery(tableStructureQuery);
-    
+
     // Get sample data from the table (limit to avoid large responses)
     const sampleDataQuery = `
       SELECT TOP 5 * FROM pow.SourceSystem ORDER BY SourceSystemID
     `;
-    
-    const sampleResult = await executeQuery(sampleDataQuery);
-    
-    // Get row count
-    const countQuery = `SELECT COUNT(*) as total_count FROM pow.SourceSystem WHERE IsActive = 1`;
-    const countResult = await executeQuery(countQuery);
 
-    // Get active/inactive counts
-    const statusQuery = `
-      SELECT 
-        SUM(CASE WHEN IsActive = 1 THEN 1 ELSE 0 END) as active_count,
-        SUM(CASE WHEN IsActive = 0 THEN 1 ELSE 0 END) as inactive_count
-      FROM pow.SourceSystem
-    `;
-    const statusResult = await executeQuery(statusQuery);
+    const sampleResult = await executeQuery(sampleDataQuery);
+
+    // Get row count
+    const countQuery = `SELECT COUNT(*) as total_count FROM pow.SourceSystem`;
+    const countResult = await executeQuery(countQuery);
 
     res.status(200).json({
       success: true,
-      message: 'Table introspection successful',
+      message: "Table introspection successful",
       data: {
         table_structure: structureResult.recordset,
         sample_data: sampleResult.recordset,
         total_rows: countResult.recordset[0].total_count,
-        status_counts: statusResult.recordset[0],
-        schema: 'pow',
-        table: 'SourceSystem'
-      }
+        schema: "pow",
+        table: "SourceSystem",
+      },
     });
   } catch (error) {
-    console.error('Database introspection failed:', error);
+    console.error("Database introspection failed:", error);
     res.status(500).json({
       success: false,
-      message: 'Database introspection failed',
+      message: "Database introspection failed",
       error: error.message,
-      details: 'Make sure the pow.SourceSystem table exists and you have access to it'
+      details:
+        "Make sure the pow.SourceSystem table exists and you have access to it",
     });
   }
 }
