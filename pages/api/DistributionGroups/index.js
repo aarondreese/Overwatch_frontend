@@ -1,51 +1,192 @@
-export async function listDistributionGroups() {
-  const res = await fetch("https://localhost:7001/api/DistributionGroups");
-  const data = await res.json();
-  console.log("data:", data);
-  return data;
-}
+import { executeQuery } from '../../../lib/db';
 
-export async function updateDistributionGroup(dto) {
-  let url = "https://localhost:7001/api/DistributionGroups";
-  const method = dto.DistributionGroupID == -1 ? "POST" : "PUT";
-  
-  const distributionGroupEditModel = {
-    groupName: dto.GroupName,
-  };
-  
-  if(method=="PUT"){
-    url = url + `/${dto.DistributionGroupID}`
-    distributionGroupEditModel.id = dto.DistributionGroupID
-    distributionGroupEditModel.rowstamp = "nonce"
-
-  }
-
-  console.log(
-    "in updateDistributionGroup distributionGroupEditModel: ",
-    distributionGroupEditModel
-  );
-  console.warn("using Method: ", method);
-  console.warn("target URL:", url);
-  const res = await fetch(url, {
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-    },
-    method,
-    body: JSON.stringify(distributionGroupEditModel),
+// Helper function for API responses
+function apiResponse(res, status, success, message, data = null, error = null) {
+  return res.status(status).json({
+    success,
+    message,
+    data,
+    ...(error && { error })
   });
-  console.log("in updateDistributionGroups dto: ", dto);
-  const status = await res.status;
-  console.log("Got back from fetch: ", res);
-  if (status == 200) {
-    const data = await listDistributionGroups();
-    return data;
-  }
-  return "Erm - something went wrong";
 }
 
-export async function deleteDistributionGroup(groupID){
-  let url = `https://localhost:7001/api/DistributionGroups/${groupID}`
-  const method = "DELETE"
-  const res = await fetch(url,{method});
+export default async function handler(req, res) {
+  const { method } = req;
+
+  try {
+    switch (method) {
+      case 'GET':
+        await handleGet(req, res);
+        break;
+      case 'POST':
+        await handlePost(req, res);
+        break;
+      case 'PUT':
+        await handlePut(req, res);
+        break;
+      case 'DELETE':
+        await handleDelete(req, res);
+        break;
+      default:
+        res.setHeader('Allow', ['GET', 'POST', 'PUT', 'DELETE']);
+        return apiResponse(res, 405, false, `Method ${method} Not Allowed`);
+    }
+  } catch (error) {
+    console.error('DistributionGroups API error:', error);
+    return apiResponse(res, 500, false, 'Internal server error', null, error.message);
+  }
+}
+
+async function handleGet(req, res) {
+  const { id } = req.query;
+
+  let query, params;
+  
+  if (id) {
+    // Get single distribution group
+    query = `
+      SELECT 
+        ID as id,
+        GroupName as groupName
+      FROM pow.DistributionGroup
+      WHERE ID = @id
+    `;
+    params = { id: parseInt(id) };
+  } else {
+    // Get all distribution groups
+    query = `
+      SELECT 
+        ID as id,
+        GroupName as groupName
+      FROM pow.DistributionGroup
+      ORDER BY GroupName
+    `;
+    params = {};
+  }
+
+  const result = await executeQuery(query, params);
+  
+  if (id && result.recordset.length === 0) {
+    return apiResponse(res, 404, false, 'Distribution group not found');
+  }
+
+  const groups = result.recordset;
+  return apiResponse(res, 200, true, 'Distribution groups retrieved successfully', id ? groups[0] : groups);
+}
+
+async function handlePost(req, res) {
+  const { groupName } = req.body;
+
+  if (!groupName) {
+    return apiResponse(res, 400, false, 'Group name is required');
+  }
+
+  // Check if group name already exists
+  const existingGroup = await executeQuery(
+    'SELECT ID FROM pow.DistributionGroup WHERE GroupName = @groupName',
+    { groupName }
+  );
+
+  if (existingGroup.recordset.length > 0) {
+    return apiResponse(res, 400, false, 'Group name already exists');
+  }
+
+  const query = `
+    INSERT INTO pow.DistributionGroup (GroupName)
+    OUTPUT INSERTED.ID, INSERTED.GroupName
+    VALUES (@groupName)
+  `;
+
+  const result = await executeQuery(query, { groupName });
+  
+  const newGroup = {
+    id: result.recordset[0].ID,
+    groupName: result.recordset[0].GroupName
+  };
+
+  return apiResponse(res, 201, true, 'Distribution group created successfully', newGroup);
+}
+
+async function handlePut(req, res) {
+  const { id, groupName } = req.body;
+
+  if (!id) {
+    return apiResponse(res, 400, false, 'Group ID is required');
+  }
+
+  if (!groupName) {
+    return apiResponse(res, 400, false, 'Group name is required');
+  }
+
+  // Check if group exists
+  const existingGroup = await executeQuery(
+    'SELECT ID FROM pow.DistributionGroup WHERE ID = @id',
+    { id: parseInt(id) }
+  );
+
+  if (existingGroup.recordset.length === 0) {
+    return apiResponse(res, 404, false, 'Distribution group not found');
+  }
+
+  // Check if group name already exists for another group
+  const duplicateGroup = await executeQuery(
+    'SELECT ID FROM pow.DistributionGroup WHERE GroupName = @groupName AND ID != @id',
+    { groupName, id: parseInt(id) }
+  );
+
+  if (duplicateGroup.recordset.length > 0) {
+    return apiResponse(res, 400, false, 'Group name already exists');
+  }
+
+  const query = `
+    UPDATE pow.DistributionGroup 
+    SET GroupName = @groupName
+    OUTPUT INSERTED.ID, INSERTED.GroupName
+    WHERE ID = @id
+  `;
+
+  const result = await executeQuery(query, { groupName, id: parseInt(id) });
+  
+  if (result.recordset.length === 0) {
+    return apiResponse(res, 404, false, 'Distribution group not found');
+  }
+
+  const updatedGroup = {
+    id: result.recordset[0].ID,
+    groupName: result.recordset[0].GroupName
+  };
+
+  return apiResponse(res, 200, true, 'Distribution group updated successfully', updatedGroup);
+}
+
+async function handleDelete(req, res) {
+  const { id } = req.query;
+
+  if (!id) {
+    return apiResponse(res, 400, false, 'Group ID is required');
+  }
+
+  // Check if group exists
+  const existingGroup = await executeQuery(
+    'SELECT ID FROM pow.DistributionGroup WHERE ID = @id',
+    { id: parseInt(id) }
+  );
+
+  if (existingGroup.recordset.length === 0) {
+    return apiResponse(res, 404, false, 'Distribution group not found');
+  }
+
+  // Delete members first (if any)
+  await executeQuery(
+    'DELETE FROM pow.DistributionGroupMember WHERE DistributionGroup_ID = @id',
+    { id: parseInt(id) }
+  );
+
+  // Delete the group
+  await executeQuery(
+    'DELETE FROM pow.DistributionGroup WHERE ID = @id',
+    { id: parseInt(id) }
+  );
+
+  return apiResponse(res, 200, true, 'Distribution group deleted successfully');
 }

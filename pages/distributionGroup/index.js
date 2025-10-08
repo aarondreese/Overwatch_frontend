@@ -4,13 +4,13 @@ import {
   listDistributionGroups,
   updateDistributionGroup,
   deleteDistributionGroup,
-} from "../api/DistributionGroups";
+} from "../../lib/client/distributionGroups";
 import {
   listSourceSystems,
   updateDistributionGroupMember,
   addDistributionGroupMember,
   deleteDistributionGroupMember,
-} from "../api/DistributionGroupMembers";
+} from "../../lib/client/distributionGroupMembers";
 
 import { useForm } from "react-hook-form";
 
@@ -289,8 +289,8 @@ export default function DistributionGroup() {
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Email Address
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Status
+                        <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Active
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Actions
@@ -309,32 +309,25 @@ export default function DistributionGroup() {
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                             {member.emailAddress}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span
-                              className={`px-2 py-1 text-xs font-medium rounded-full ${
-                                member.isActive
-                                  ? "bg-green-100 text-green-800"
-                                  : "bg-red-100 text-red-800"
-                              }`}
-                            >
-                              {member.isActive ? "Active" : "Inactive"}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            <div className="flex space-x-2">
-                              <button
-                                onClick={(e) => {
+                          <td className="px-6 py-4 whitespace-nowrap text-center">
+                            <label className="relative inline-flex items-center cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={member.isActive}
+                                onChange={(e) => {
                                   e.stopPropagation();
                                   handleActiveToggle(member.id);
                                 }}
-                                className={`px-2 py-1 text-xs font-medium rounded ${
-                                  member.isActive
-                                    ? "bg-red-100 text-red-800 hover:bg-red-200"
-                                    : "bg-green-100 text-green-800 hover:bg-green-200"
-                                }`}
-                              >
-                                {member.isActive ? "Deactivate" : "Activate"}
-                              </button>
+                                className="sr-only peer"
+                              />
+                              <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                              <span className="ml-3 text-sm font-medium text-gray-900">
+                                {member.isActive ? "Active" : "Inactive"}
+                              </span>
+                            </label>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <div className="flex space-x-2">
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();

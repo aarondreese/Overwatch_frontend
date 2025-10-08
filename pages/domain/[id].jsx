@@ -1,7 +1,7 @@
 import Head from "next/head";
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { set } from "react-hook-form";
-import { getDomainByID } from "../api/Domains";
+import { getDomainByID } from "../../lib/client/domains";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { PlusCircleIcon, MinusCircleIcon } from "@heroicons/react/24/solid";

@@ -26,8 +26,8 @@ const menuItems = [
   {
     title: "Schedules",
     description:
-      "These are the timing engine for the DQ checks, Email Dispatch and Event mointoring.",
-    link: "./scratch",
+      "These are the timing engine for the DQ checks, Email Dispatch and Event monitoring.",
+    link: "./schedules",
   },
 ];
 

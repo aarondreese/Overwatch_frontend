@@ -1,7 +1,7 @@
 import Head from "next/head";
 import Link from "next/link";
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { listDomains } from "../api/Domains";
+import { listDomains } from "../../lib/client/domains";
 
 import { PencilSquareIcon, PlusCircleIcon } from "@heroicons/react/24/solid";
 
