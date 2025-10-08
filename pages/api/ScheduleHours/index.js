@@ -1,4 +1,4 @@
-import { executeQuery } from '../../../lib/db';
+import { executeQuery } from '@/lib/db';
 
 function apiResponse(res, status, success, message, data = null) {
   return res.status(status).json({

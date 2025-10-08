@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
-import { listSchedules, deleteSchedule, updateSchedule } from "../lib/client/schedules";
+import { listSchedules, deleteSchedule, updateSchedule } from "@/lib/client/schedules";
 
 import {
   PencilSquareIcon,
@@ -212,12 +212,26 @@ export default function Schedules() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500">
                         <div className="flex items-center justify-center space-x-2">
-                          <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              router.push(`/schedules/${schedule.id}/usage`);
+                            }}
+                            className="bg-blue-100 hover:bg-blue-200 text-blue-800 px-2 py-1 rounded-full text-xs transition-colors cursor-pointer"
+                            title="View checks using this schedule"
+                          >
                             Checks: {schedule.dqcheckSchedules?.length || 0}
-                          </span>
-                          <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs">
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              router.push(`/schedules/${schedule.id}/usage`);
+                            }}
+                            className="bg-green-100 hover:bg-green-200 text-green-800 px-2 py-1 rounded-full text-xs transition-colors cursor-pointer"
+                            title="View emails using this schedule"
+                          >
                             Emails: {schedule.dqemailSchedules || 0}
-                          </span>
+                          </button>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">

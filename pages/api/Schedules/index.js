@@ -1,4 +1,4 @@
-import { executeQuery } from '../../../lib/db';
+import { executeQuery } from '@/lib/db';
 
 // Helper function for API responses
 function apiResponse(res, status, success, message, data = null, error = null) {

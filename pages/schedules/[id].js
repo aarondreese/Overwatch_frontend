@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
 import Link from "next/link";
-import { getScheduleByID, updateSchedule, getScheduleDays, updateScheduleDays, getScheduleHours, updateScheduleHours } from "../../lib/client/schedules";
+import { getScheduleByID, updateSchedule, getScheduleDays, updateScheduleDays, getScheduleHours, updateScheduleHours } from "@/lib/client/schedules";
 
 import {
   ArrowLeftIcon,
@@ -526,18 +526,26 @@ export default function ScheduleDetail() {
                   <span className="text-sm font-medium text-gray-700">
                     DQ Checks using this schedule:
                   </span>
-                  <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
+                  <button
+                    onClick={() => router.push(`/schedules/${id}/usage`)}
+                    className="bg-blue-100 hover:bg-blue-200 text-blue-800 px-3 py-1 rounded-full text-sm font-medium transition-colors cursor-pointer"
+                    title="View checks using this schedule"
+                  >
                     {schedule.dqcheckSchedules?.length || 0}
-                  </span>
+                  </button>
                 </div>
                 
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-medium text-gray-700">
                     Email notifications using this schedule:
                   </span>
-                  <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">
+                  <button
+                    onClick={() => router.push(`/schedules/${id}/usage`)}
+                    className="bg-green-100 hover:bg-green-200 text-green-800 px-3 py-1 rounded-full text-sm font-medium transition-colors cursor-pointer"
+                    title="View emails using this schedule"
+                  >
                     {schedule.dqemailSchedules || 0}
-                  </span>
+                  </button>
                 </div>
 
                 {(schedule.dqcheckSchedules?.length > 0 || schedule.dqemailSchedules > 0) && (
