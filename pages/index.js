@@ -35,6 +35,12 @@ const menuItems = [
       "Data Quality checks monitor and validate data integrity across all systems.",
     link: "./dqchecks",
   },
+  {
+    title: "DQ Emails",
+    description:
+      "Email notifications and alerts based on data quality check results.",
+    link: "./dqemails",
+  },
 ];
 
 export default function Home() {
