@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
+import Link from "next/link";
 import { listSchedules, deleteSchedule, updateSchedule } from "@/lib/client/schedules";
 
 import {
@@ -103,9 +104,20 @@ export default function Schedules() {
 
       <div className="min-h-screen bg-gray-50 p-8">
         <div className="max-w-7xl mx-auto">
-          <h1 className="text-3xl font-bold text-gray-900 mb-8">
-            Schedule Management
-          </h1>
+          {/* Header */}
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center space-x-4">
+              <Link
+                href="/"
+                className="text-gray-600 hover:text-gray-900 transition-colors"
+              >
+                ← Back to Home
+              </Link>
+              <h1 className="text-3xl font-bold text-gray-900">
+                Schedule Management
+              </h1>
+            </div>
+          </div>
 
           {/* Header Section */}
           <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-6 mb-8">

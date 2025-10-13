@@ -29,6 +29,12 @@ const menuItems = [
       "These are the timing engine for the DQ checks, Email Dispatch and Event monitoring.",
     link: "./schedules",
   },
+  {
+    title: "DQ Checks",
+    description:
+      "Data Quality checks monitor and validate data integrity across all systems.",
+    link: "./dqchecks",
+  },
 ];
 
 export default function Home() {

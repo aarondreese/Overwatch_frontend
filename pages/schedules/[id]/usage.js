@@ -20,6 +20,10 @@ export default function ScheduleUsage() {
   const [checks, setChecks] = useState([]);
   const [emails, setEmails] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  // Track original states for color coding
+  const [originalChecks, setOriginalChecks] = useState([]);
+  const [originalEmails, setOriginalEmails] = useState([]);
 
   useEffect(() => {
     if (id) {
@@ -44,8 +48,15 @@ export default function ScheduleUsage() {
       if (usageData.success) {
         console.log('Setting checks:', usageData.data.checks);
         console.log('Setting emails:', usageData.data.emails);
-        setChecks(usageData.data.checks || []);
-        setEmails(usageData.data.emails || []);
+        const checksData = usageData.data.checks || [];
+        const emailsData = usageData.data.emails || [];
+        
+        setChecks(checksData);
+        setEmails(emailsData);
+        
+        // Store original states for color coding
+        setOriginalChecks(checksData.map(c => ({ ...c })));
+        setOriginalEmails(emailsData.map(e => ({ ...e })));
       } else {
         console.error('API returned success: false', usageData);
         throw new Error('Failed to fetch usage data');
@@ -63,14 +74,21 @@ export default function ScheduleUsage() {
         ]);
         
         console.log('Fallback API responses:', checksResponse, emailsResponse);
-        setChecks(checksResponse.data || []);
-        setEmails(emailsResponse.data || []);
+        const checksData = checksResponse.data || [];
+        const emailsData = emailsResponse.data || [];
+        
+        setChecks(checksData);
+        setEmails(emailsData);
+        
+        // Store original states for color coding
+        setOriginalChecks(checksData.map(c => ({ ...c })));
+        setOriginalEmails(emailsData.map(e => ({ ...e })));
       } catch (fallbackError) {
         console.error("Fallback API calls also failed:", fallbackError);
         console.log("Using mock data as final fallback");
         
         // Set some mock data as last resort
-        setChecks([
+        const mockChecks = [
           { 
             id: 1, 
             name: "Customer Data Quality Check", 
@@ -92,8 +110,9 @@ export default function ScheduleUsage() {
             status: "Inactive", 
             lastRun: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
           },
-        ]);
-        setEmails([
+        ];
+        
+        const mockEmails = [
           { 
             id: 1, 
             recipient: "admin@company.com", 
@@ -108,7 +127,14 @@ export default function ScheduleUsage() {
             description: "Immediate notifications for failed data quality checks", 
             lastSent: new Date(Date.now() - 90 * 60 * 1000).toISOString()
           },
-        ]);
+        ];
+        
+        setChecks(mockChecks);
+        setEmails(mockEmails);
+        
+        // Store original states for color coding
+        setOriginalChecks(mockChecks.map(c => ({ ...c })));
+        setOriginalEmails(mockEmails.map(e => ({ ...e })));
       }
     } finally {
       setLoading(false);
@@ -125,6 +151,115 @@ export default function ScheduleUsage() {
       hour: '2-digit',
       minute: '2-digit'
     });
+  }
+
+  // Get color state for check status toggle
+  function getCheckStatusColorState(checkId) {
+    const originalCheck = originalChecks.find(c => c.id === checkId);
+    const currentCheck = checks.find(c => c.id === checkId);
+    
+    if (!originalCheck || !currentCheck) return "blue";
+    
+    const wasActive = originalCheck.status === 'Active';
+    const isActive = currentCheck.status === 'Active';
+    
+    if (wasActive === isActive) {
+      return "blue"; // No change from original
+    } else if (!wasActive && isActive) {
+      return "green"; // Was inactive, now active
+    } else if (wasActive && !isActive) {
+      return "red"; // Was active, now inactive
+    }
+    return "blue";
+  }
+
+  // Get color state for email status toggle (if applicable)
+  function getEmailStatusColorState(emailId) {
+    const originalEmail = originalEmails.find(e => e.id === emailId);
+    const currentEmail = emails.find(e => e.id === emailId);
+    
+    if (!originalEmail || !currentEmail) return "blue";
+    
+    const wasActive = originalEmail.status === 'Active';
+    const isActive = currentEmail.status === 'Active';
+    
+    if (wasActive === isActive) {
+      return "blue"; // No change from original
+    } else if (!wasActive && isActive) {
+      return "green"; // Was inactive, now active
+    } else if (wasActive && !isActive) {
+      return "red"; // Was active, now inactive
+    }
+    return "blue";
+  }
+
+  // Get CSS classes for toggle switch based on color state
+  function getToggleClasses(colorState, isChecked) {
+    const baseClasses = "relative w-11 h-6 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all";
+    
+    switch (colorState) {
+      case "green":
+        return `${baseClasses} bg-gray-200 peer-focus:ring-4 peer-focus:ring-green-300 after:border-gray-300 peer-checked:bg-green-600`;
+      case "red":
+        return `${baseClasses} bg-gray-200 peer-focus:ring-4 peer-focus:ring-red-300 after:border-gray-300 peer-checked:bg-red-600`;
+      default: // blue
+        return `${baseClasses} bg-gray-200 peer-focus:ring-4 peer-focus:ring-blue-300 after:border-gray-300 peer-checked:bg-blue-600`;
+    }
+  }
+
+  // Toggle check status - toggles the DQCheck_Schedule relationship, not the DQCheck itself
+  async function toggleCheckStatus(checkId) {
+    try {
+      const currentCheck = checks.find(c => c.id === checkId);
+      if (!currentCheck) return;
+
+      const newStatus = currentCheck.status === 'Active' ? 'Inactive' : 'Active';
+      const newIsEnabled = newStatus === 'Active';
+      
+      // Update locally immediately for responsive UI
+      setChecks(prev => prev.map(check => 
+        check.id === checkId 
+          ? { ...check, status: newStatus }
+          : check
+      ));
+
+      // Make API call to update the DQCheck_Schedule relationship
+      const response = await fetch(`/api/DQCheck_Schedule`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          dqCheckId: checkId,
+          scheduleId: parseInt(id), // Schedule ID from the router
+          isEnabled: newIsEnabled
+        }),
+      });
+
+      const result = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.message || 'Failed to update check-schedule relationship');
+      }
+      
+      console.log(`Successfully updated DQCheck ${checkId} - Schedule ${id} relationship to: ${newIsEnabled ? 'enabled' : 'disabled'}`);
+      
+    } catch (error) {
+      console.error('Error toggling check-schedule relationship:', error);
+      // Revert on error
+      const currentCheck = checks.find(c => c.id === checkId);
+      if (currentCheck) {
+        const revertedStatus = currentCheck.status === 'Active' ? 'Inactive' : 'Active';
+        setChecks(prev => prev.map(check => 
+          check.id === checkId 
+            ? { ...check, status: revertedStatus }
+            : check
+        ));
+      }
+      
+      // Show error message to user
+      alert(`Failed to update check-schedule relationship: ${error.message}`);
+    }
   }
 
   if (loading) {
@@ -231,29 +366,50 @@ export default function ScheduleUsage() {
                     <div key={check.id} className="p-6 hover:bg-gray-50">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
-                          <h3 className="text-sm font-medium text-gray-900">
-                            {check.name}
+                          <h3 className="text-sm font-medium">
+                            <Link
+                              href={`/dqchecks/${check.id}`}
+                              className="text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+                            >
+                              {check.name}
+                            </Link>
                           </h3>
                           <p className="mt-1 text-sm text-gray-600">
                             {check.description}
                           </p>
-                          <div className="mt-2 flex items-center space-x-4 text-xs text-gray-500">
+                          <div className="mt-2 flex items-center space-x-2">
+                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                              check.dqCheckIsActive 
+                                ? 'bg-green-100 text-green-800' 
+                                : 'bg-red-100 text-red-800'
+                            }`}>
+                              DQ Check: {check.dqCheckIsActive ? 'Active' : 'Inactive'}
+                            </span>
+                          </div>
+                          <div className="mt-1 flex items-center space-x-4 text-xs text-gray-500">
                             <div className="flex items-center space-x-1">
                               <ClockIcon className="h-3 w-3" />
                               <span>Last run: {formatDateTime(check.lastRun)}</span>
                             </div>
                           </div>
                         </div>
-                        <div className="ml-4">
-                          <span
-                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              check.status === 'Active'
-                                ? "bg-green-100 text-green-800"
-                                : "bg-red-100 text-red-800"
-                            }`}
-                          >
-                            {check.status}
-                          </span>
+                        <div className="ml-4 flex flex-col items-end space-y-2">
+                          <div className="flex items-center space-x-2">
+                            <span className={`text-xs font-medium ${
+                              check.status === 'Active' ? 'text-green-700' : 'text-red-700'
+                            }`}>
+                              Schedule: {check.status}
+                            </span>
+                            <label className="relative inline-flex items-center cursor-pointer">
+                              <input
+                                type="checkbox"
+                                className="sr-only peer"
+                                checked={check.status === 'Active'}
+                                onChange={() => toggleCheckStatus(check.id)}
+                              />
+                              <div className={getToggleClasses(getCheckStatusColorState(check.id), check.status === 'Active')}></div>
+                            </label>
+                          </div>
                         </div>
                       </div>
                     </div>

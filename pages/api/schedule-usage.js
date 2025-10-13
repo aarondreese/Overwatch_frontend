@@ -14,109 +14,43 @@ export default async function handler(req, res) {
   try {
     console.log('Fetching usage data for schedule:', scheduleId);
 
-    // Try to use the ScheduleSummary view first
+    // Use direct table queries for better control over the data
     let checks = [];
     let emails = [];
-
     try {
-      // Query ScheduleSummary for both checks and emails (using actual column names)
-      const summaryQuery = `
+      const checksQuery = `
         SELECT 
-          ID as ScheduleID,
-          Title as ScheduleName,
-          IsEnabled as ScheduleEnabled,
-          Type_ID as CheckID,
-          Action as CheckName,
-          Details as CheckDescription,
-          CASE WHEN isActive = 1 THEN 'Active' ELSE 'Inactive' END as CheckStatus,
-          Type,
-          Domain,
-          Subject
-        FROM pow.ScheduleSummary 
-        WHERE ID = @scheduleId
+          dq.ID as id,
+          dq.FunctionName as name,
+          dq.Explain as description,
+          CASE WHEN dqs.IsEnabled = 1 THEN 'Active' ELSE 'Inactive' END as relationshipStatus,
+          dq.IsActive as dqCheckIsActive,
+          COALESCE(rh.maxRunStart, NULL) as lastRun
+        FROM pow.DQCheck_Schedule dqs
+        INNER JOIN pow.DQCheck dq ON dqs.DQCheck_ID = dq.ID
+        LEFT JOIN (
+          SELECT 
+            DQCheck_ID,
+            MAX(RunStart) as maxRunStart
+          FROM pow.RunHistory
+          GROUP BY DQCheck_ID
+        ) rh ON dq.ID = rh.DQCheck_ID
+        WHERE dqs.Schedule_ID = @scheduleId
+        ORDER BY dq.FunctionName
       `;
 
-      const summaryResult = await executeQuery(summaryQuery, { scheduleId: parseInt(scheduleId) });
-      
-      if (summaryResult.recordset && summaryResult.recordset.length > 0) {
-        // Extract unique checks and emails from the summary view
-        const checkMap = new Map();
-        const emailMap = new Map();
-
-        summaryResult.recordset.forEach(row => {
-          if (row.Type === 'DQ Check' && row.CheckID) {
-            checkMap.set(row.CheckID, {
-              id: row.CheckID,
-              name: row.CheckName || `DQ Check ${row.CheckID}`,
-              description: row.CheckDescription || 'Data quality validation check',
-              status: row.CheckStatus,
-              domain: row.Domain,
-              lastRun: null // Not available in this view
-            });
-          }
-          
-          if (row.Type === 'EMail Send' && row.CheckID) {
-            emailMap.set(row.CheckID, {
-              id: row.CheckID,
-              subject: row.Subject || `Email notification ${row.CheckID}`,
-              recipient: 'admin@company.com', // Not available in view
-              description: row.CheckDescription || 'Automated email notification',
-              action: row.CheckName,
-              lastSent: null // Not available in this view
-            });
-          }
-        });
-
-        checks = Array.from(checkMap.values());
-        emails = Array.from(emailMap.values());
-      }
-    } catch (summaryError) {
-      console.log('ScheduleSummary view not available, trying direct table queries:', summaryError.message);
-      console.log('Full error:', summaryError);
-    }
-
-    // If ScheduleSummary didn't work or returned no data, try direct table queries
-    if (checks.length === 0) {
-      try {
-        const checksQuery = `
-          SELECT 
-            c.CheckID as id,
-            c.CheckName as name,
-            c.CheckDescription as description,
-            CASE WHEN c.IsActive = 1 THEN 'Active' ELSE 'Inactive' END as status,
-            c.LastExecuted as lastRun
-          FROM pow.DQ_CheckSchedule cs
-          INNER JOIN pow.DQ_Check c ON cs.CheckID = c.CheckID
-          WHERE cs.ScheduleID = @scheduleId
-          ORDER BY c.CheckName
-        `;
-
-        const checksResult = await executeQuery(checksQuery, { scheduleId: parseInt(scheduleId) });
-        checks = checksResult.recordset || [];
-      } catch (checksError) {
-        console.log('DQ_CheckSchedule query failed, trying alternative table names:', checksError.message);
-        
-        // Try alternative table/column names
-        try {
-          const altChecksQuery = `
-            SELECT 
-              c.ID as id,
-              c.CheckName as name,
-              c.Description as description,
-              CASE WHEN c.IsEnabled = 1 THEN 'Active' ELSE 'Inactive' END as status,
-              c.LastRunDate as lastRun
-            FROM pow.DQ_CheckSchedule cs
-            INNER JOIN pow.DQ_Check c ON cs.DQCheck_ID = c.ID
-            WHERE cs.Schedule_ID = @scheduleId
-            ORDER BY c.CheckName
-          `;
-
-          const altChecksResult = await executeQuery(altChecksQuery, { scheduleId: parseInt(scheduleId) });
-          checks = altChecksResult.recordset || [];
-        } catch (altError) {
-          console.log('Alternative checks query also failed:', altError.message);
-        }
-      }
+      const checksResult = await executeQuery(checksQuery, { scheduleId: parseInt(scheduleId) });
+      checks = (checksResult.recordset || []).map(row => ({
+        id: row.id,
+        name: row.name,
+        description: row.description || 'Data quality validation check',
+        status: row.relationshipStatus, // This is the DQCheck_Schedule.IsEnabled status
+        dqCheckIsActive: row.dqCheckIsActive, // This is the DQCheck.IsActive status
+        lastRun: row.lastRun
+      }));
+    } catch (checksError) {
+      console.log('DQCheck_Schedule query failed:', checksError.message);
+      checks = [];
     }
 
     // Get emails if not already retrieved from ScheduleSummary
