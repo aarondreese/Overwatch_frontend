@@ -3,6 +3,7 @@ import { useRouter } from "next/router";
 import Head from "next/head";
 import Link from "next/link";
 import { listDQChecks, updateDQCheckStatus } from "@/lib/client/dqchecks";
+import AddDQCheckModal from '@/components/AddDQCheckModal';
 
 import {
   PencilSquareIcon,
@@ -13,6 +14,7 @@ import {
   ExclamationTriangleIcon,
   BeakerIcon,
   MagnifyingGlassIcon,
+  PlusIcon,
 } from "@heroicons/react/24/solid";
 
 export default function DQChecks() {
@@ -20,6 +22,7 @@ export default function DQChecks() {
   const [dqChecks, setDQChecks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [showAddModal, setShowAddModal] = useState(false);
 
   // Filter DQ checks based on search term
   const filteredDQChecks = dqChecks.filter(check => {
@@ -111,11 +114,20 @@ export default function DQChecks() {
                 Data Quality Checks
               </h1>
             </div>
-            <div className="text-sm text-gray-600">
-              {searchTerm 
-                ? `${filteredDQChecks.length} of ${dqChecks.length} checks found`
-                : `${dqChecks.length} checks found`
-              }
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+              >
+                <PlusIcon className="h-4 w-4 mr-2" />
+                Add New DQ Check
+              </button>
+              <div className="text-sm text-gray-600">
+                {searchTerm 
+                  ? `${filteredDQChecks.length} of ${dqChecks.length} checks found`
+                  : `${dqChecks.length} checks found`
+                }
+              </div>
             </div>
           </div>
 
@@ -317,6 +329,16 @@ export default function DQChecks() {
             </div>
           )}
         </div>
+        
+        {/* Add DQ Check Modal */}
+        <AddDQCheckModal 
+          isOpen={showAddModal}
+          onClose={() => setShowAddModal(false)}
+          onSuccess={() => {
+            fetchData(); // Refresh the DQ checks list
+            setShowAddModal(false);
+          }}
+        />
       </div>
     </>
   );

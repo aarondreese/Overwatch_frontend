@@ -189,8 +189,14 @@ async function handlePut(req, res) {
   }
 
   if (explain !== undefined) {
+    if (!explain?.trim()) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Description cannot be empty' 
+      });
+    }
     updateFields.push('Explain = @explain');
-    params.explain = explain;
+    params.explain = explain.trim();
   }
 
   if (updateFields.length === 0) {
