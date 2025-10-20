@@ -98,10 +98,10 @@ export default function DQEmails() {
         />
       </Head>
 
-      <div className="min-h-screen bg-gray-50 p-8">
-        <div className="max-w-7xl mx-auto">
+      <div className="min-h-screen bg-gray-50 p-4 sm:p-8">
+        <div className="max-w-full mx-auto">
           {/* Header */}
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8 gap-4">
             <div className="flex items-center space-x-4">
               <Link
                 href="/"
@@ -109,7 +109,7 @@ export default function DQEmails() {
               >
                 ← Back to Dashboard
               </Link>
-              <h1 className="text-3xl font-bold text-gray-900">
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
                 Data Quality Emails
               </h1>
             </div>
@@ -175,7 +175,7 @@ export default function DQEmails() {
           {/* DQ Emails Table */}
           <div className="bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <h2 className="text-lg font-medium text-gray-900">
                   Data Quality Emails
                 </h2>
@@ -188,7 +188,7 @@ export default function DQEmails() {
                     placeholder="Search by name, subject, or function..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm w-80"
+                    className="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm w-full sm:w-80"
                   />
                 </div>
               </div>
@@ -198,29 +198,20 @@ export default function DQEmails() {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Email Name
+                    <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-2/5">
+                      Email Name & Subject
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Subject
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      DQ Check
-                    </th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-3 sm:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6">
                       Status
                     </th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Frequency
+                    <th className="px-3 sm:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6">
+                      Frequency & Last Run
                     </th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-3 sm:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
                       Schedules
                     </th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Last Run
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
+                    <th className="px-3 sm:px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6">
+                      DQ Check & Actions
                     </th>
                   </tr>
                 </thead>
@@ -231,56 +222,67 @@ export default function DQEmails() {
                       className="hover:bg-gray-50 cursor-pointer"
                       onClick={() => router.push(`/dqemails/${email.id}`)}
                     >
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">
-                              {email.emailName}
-                            </div>
-                            {email.inDev && (
-                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 mt-1">
-                                <BeakerIcon className="h-3 w-3 mr-1" />
-                                Development
-                              </span>
-                            )}
+                      {/* Email Name & Subject */}
+                      <td className="px-3 sm:px-6 py-4 w-2/5">
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium text-gray-900 truncate">
+                            {email.emailName}
+                          </div>
+                          <div className="text-xs text-gray-500 truncate mt-1">
+                            {email.emailSubject || "No subject"}
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {email.emailSubject || "No subject"}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {email.dqCheckFunction || "No DQ Check"}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleToggleStatus(email.id, email.isActive);
-                          }}
-                          className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                            email.isActive
-                              ? "bg-green-100 text-green-800 hover:bg-green-200"
-                              : "bg-red-100 text-red-800 hover:bg-red-200"
-                          }`}
-                        >
-                          {email.isActive ? (
-                            <>
-                              <PlayIcon className="h-3 w-3 mr-1" />
-                              Active
-                            </>
-                          ) : (
-                            <>
-                              <PauseIcon className="h-3 w-3 mr-1" />
-                              Inactive
-                            </>
+
+                      {/* Status (Active/Inactive + In Dev) */}
+                      <td className="px-3 sm:px-6 py-4 text-center w-1/6">
+                        <div className="flex flex-col items-center space-y-1">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleStatus(email.id, email.isActive);
+                            }}
+                            className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium transition-colors ${
+                              email.isActive
+                                ? "bg-green-100 text-green-800 hover:bg-green-200"
+                                : "bg-red-100 text-red-800 hover:bg-red-200"
+                            }`}
+                          >
+                            {email.isActive ? (
+                              <>
+                                <PlayIcon className="h-3 w-3 mr-1" />
+                                Active
+                              </>
+                            ) : (
+                              <>
+                                <PauseIcon className="h-3 w-3 mr-1" />
+                                Inactive
+                              </>
+                            )}
+                          </button>
+                          {email.inDev && (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                              <BeakerIcon className="h-3 w-3 mr-1" />
+                              Dev
+                            </span>
                           )}
-                        </button>
+                        </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500">
-                        {formatFrequency(email.frequencyInMinutes)}
+
+                      {/* Frequency & Last Run */}
+                      <td className="px-3 sm:px-6 py-4 text-center w-1/6">
+                        <div className="text-xs text-gray-600">
+                          <div className="font-medium">
+                            {formatFrequency(email.frequencyInMinutes)}
+                          </div>
+                          <div className="text-gray-500 mt-1 truncate" title={formatLastRun(email.lastRunDateTime)}>
+                            {formatLastRun(email.lastRunDateTime)}
+                          </div>
+                        </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500">
+
+                      {/* Schedules */}
+                      <td className="px-3 sm:px-6 py-4 text-center w-16">
                         <span className={`px-2 py-1 rounded-full text-xs ${
                           (email.activeScheduleCount || 0) === 0 
                             ? "bg-red-100 text-red-800" 
@@ -289,17 +291,19 @@ export default function DQEmails() {
                           {email.activeScheduleCount || 0}/{email.totalScheduleCount || 0}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500">
-                        {formatLastRun(email.lastRunDateTime)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="flex justify-end space-x-2">
+
+                      {/* DQ Check & Actions */}
+                      <td className="px-3 sm:px-6 py-4 text-right w-1/6">
+                        <div className="flex items-center justify-end space-x-2">
+                          <div className="text-xs text-gray-600 truncate flex-1 text-left" title={email.dqCheckFunction}>
+                            {email.dqCheckFunction || "No DQ Check"}
+                          </div>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               router.push(`/dqemails/${email.id}`);
                             }}
-                            className="text-blue-600 hover:text-blue-900 transition-colors"
+                            className="text-blue-600 hover:text-blue-900 transition-colors p-1 flex-shrink-0"
                             title="View details"
                           >
                             <PencilSquareIcon className="h-4 w-4" />

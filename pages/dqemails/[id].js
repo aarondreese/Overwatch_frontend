@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
 import Link from "next/link";
-import { getDQEmail, updateDQEmail, getDQEmailResources } from "@/lib/client/dqemails";
+import { getDQEmail, updateDQEmail, getDQEmailResources, updateHtmlTemplate } from "@/lib/client/dqemails";
+import TemplateXMLEditor from "@/components/TemplateXMLEditor";
 
 import {
   ArrowLeftIcon,
@@ -18,6 +19,7 @@ import {
   EyeIcon,
   LinkIcon,
   ArrowRightIcon,
+  PencilSquareIcon,
 } from "@heroicons/react/24/solid";
 
 export default function DQEmailDetails() {
@@ -28,6 +30,9 @@ export default function DQEmailDetails() {
   const [error, setError] = useState(null);
   const [resources, setResources] = useState({ template: null, mapViewColumns: null });
   const [resourcesLoading, setResourcesLoading] = useState(false);
+  const [showEditor, setShowEditor] = useState(false);
+  const [editorChanges, setEditorChanges] = useState(null);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -58,8 +63,10 @@ export default function DQEmailDetails() {
     if (!templateName && !mapViewName) return;
     
     try {
+      console.log('Fetching resources for:', { templateName, mapViewName });
       setResourcesLoading(true);
       const resourceData = await getDQEmailResources(templateName, mapViewName);
+      console.log('Resources fetched:', resourceData);
       setResources({
         template: resourceData.data.template || null,
         mapViewColumns: resourceData.data.mapViewColumns || null,
@@ -87,6 +94,50 @@ export default function DQEmailDetails() {
       console.error(`Error updating ${field}:`, err);
       // Could add toast notification here
     }
+  };
+
+  const handleEditorSave = async (changes) => {
+    try {
+      setEditorChanges(changes);
+      
+      // Update MapRules in DQEmail table
+      console.log('Updating DQ Email with:', { mapRules: changes.mapRules, hierarchy: changes.hierarchy });
+      const updateResult = await updateDQEmail(id, { 
+        mapRules: changes.mapRules,
+        hierarchy: changes.hierarchy // Update hierarchy if provided
+      });
+      
+      console.log('Update result:', updateResult);
+      
+      if (!updateResult || !updateResult.success) {
+        const errorMessage = updateResult?.message || 'Unknown error occurred';
+        throw new Error(`Failed to update DQ Email: ${errorMessage}`);
+      }
+      
+      // Update HTML template in HtmlTemplate table if template was changed
+      if (changes.htmlTemplate && dqEmail.htmlTemplateName) {
+        const templateResult = await updateHtmlTemplate(dqEmail.htmlTemplateName, changes.htmlTemplate);
+        if (!templateResult.success) {
+          throw new Error(`Failed to update HTML template: ${templateResult.message}`);
+        }
+      }
+      
+      // Refresh the DQ email data and resources
+      await fetchDQEmail();
+      
+      setShowEditor(false);
+      setEditorChanges(null);
+      setHasUnsavedChanges(false);
+    } catch (err) {
+      console.error('Error saving editor changes:', err);
+      // Could add toast notification here
+    }
+  };
+
+  const handleEditorCancel = () => {
+    setShowEditor(false);
+    setEditorChanges(null);
+    setHasUnsavedChanges(false);
   };
 
   const formatDate = (dateString) => {
@@ -142,85 +193,214 @@ export default function DQEmailDetails() {
     }
   };
 
-  // Format XML with proper indentation
+  // Format XML with proper indentation - keeps simple content tags on same line
   const formatXml = (xmlString) => {
     if (!xmlString) return '';
 
     try {
-      // Clean up the XML string first
-      let xml = xmlString.replace(/>\s*</g, '><'); // Remove whitespace between tags
+      // Parse using DOMParser for better handling
+      const parser = new DOMParser();
+      const xmlDoc = parser.parseFromString(xmlString, "text/xml");
       
+      // Check for parsing errors
+      const parserError = xmlDoc.getElementsByTagName("parsererror");
+      if (parserError.length > 0) {
+        return xmlString; // Return original if parsing fails
+      }
+
+      // Format XML recursively
+      const formatNode = (node, indentLevel = 0) => {
+        const indent = '  '.repeat(indentLevel);
+        
+        if (node.nodeType === 3) { // Text node
+          const text = node.textContent.trim();
+          return text ? text : '';
+        }
+        
+        if (node.nodeType === 1) { // Element node
+          const tagName = node.tagName;
+          const children = Array.from(node.childNodes);
+          
+          // Check if this is a simple text element (only contains text, no child elements)
+          const hasOnlyText = children.length === 1 && children[0].nodeType === 3;
+          
+          if (hasOnlyText) {
+            const textContent = children[0].textContent.trim();
+            return `${indent}<${tagName}>${textContent}</${tagName}>`;
+          } else if (children.length === 0) {
+            return `${indent}<${tagName}></${tagName}>`;
+          } else {
+            let result = `${indent}<${tagName}>\n`;
+            children.forEach(child => {
+              const childFormatted = formatNode(child, indentLevel + 1);
+              if (childFormatted) {
+                result += childFormatted + '\n';
+              }
+            });
+            result += `${indent}</${tagName}>`;
+            return result;
+          }
+        }
+        
+        return '';
+      };
+
+      return formatNode(xmlDoc.documentElement);
+      
+    } catch (error) {
+      console.error('Error formatting XML:', error);
+      
+      // Fallback: simple formatting
+      return xmlString
+        .replace(/></g, '>\n<')
+        .split('\n')
+        .map((line, index) => {
+          const trimmed = line.trim();
+          if (!trimmed) return '';
+          
+          let indentLevel = 0;
+          const matches = xmlString.substring(0, xmlString.indexOf(trimmed)).match(/<[^\/]/g);
+          const closes = xmlString.substring(0, xmlString.indexOf(trimmed)).match(/<\//g);
+          indentLevel = Math.max(0, (matches?.length || 0) - (closes?.length || 0));
+          
+          if (trimmed.startsWith('</')) indentLevel = Math.max(0, indentLevel - 1);
+          
+          return '  '.repeat(indentLevel) + trimmed;
+        })
+        .filter(line => line.trim())
+        .join('\n');
+    }
+  };
+
+  // Format HTML with proper indentation - similar to XML formatter but handles HTML specifics
+  const formatHtml = (htmlString) => {
+    if (!htmlString) return '';
+
+    try {
+      // Parse using DOMParser for HTML
+      const parser = new DOMParser();
+      const htmlDoc = parser.parseFromString(htmlString, "text/html");
+      
+      // Check for parsing errors
+      const parserError = htmlDoc.getElementsByTagName("parsererror");
+      if (parserError.length > 0) {
+        // Fall back to manual formatting
+        return formatHtmlManually(htmlString);
+      }
+
+      // Format HTML recursively
+      const formatNode = (node, indentLevel = 0) => {
+        const indent = '  '.repeat(indentLevel);
+        
+        if (node.nodeType === 3) { // Text node
+          const text = node.textContent.trim();
+          return text ? text : '';
+        }
+        
+        if (node.nodeType === 1) { // Element node
+          const tagName = node.tagName.toLowerCase();
+          const children = Array.from(node.childNodes);
+          const attributes = Array.from(node.attributes);
+          
+          // Build attribute string
+          const attrString = attributes.length > 0 
+            ? ' ' + attributes.map(attr => `${attr.name}="${attr.value}"`).join(' ')
+            : '';
+          
+          // Self-closing tags
+          if (['br', 'hr', 'img', 'input', 'meta', 'link'].includes(tagName)) {
+            return `${indent}<${tagName}${attrString}>`;
+          }
+          
+          // Check if this is a simple text element (only contains text, no child elements)
+          const hasOnlyText = children.length === 1 && children[0].nodeType === 3;
+          
+          if (hasOnlyText) {
+            const textContent = children[0].textContent.trim();
+            if (textContent.length < 50) { // Keep short content on same line
+              return `${indent}<${tagName}${attrString}>${textContent}</${tagName}>`;
+            }
+          }
+          
+          if (children.length === 0) {
+            return `${indent}<${tagName}${attrString}></${tagName}>`;
+          } else {
+            let result = `${indent}<${tagName}${attrString}>\n`;
+            children.forEach(child => {
+              const childFormatted = formatNode(child, indentLevel + 1);
+              if (childFormatted) {
+                result += childFormatted + '\n';
+              }
+            });
+            result += `${indent}</${tagName}>`;
+            return result;
+          }
+        }
+        
+        return '';
+      };
+
+      // Format the entire document
+      let result = '';
+      
+      // Add doctype if present
+      if (htmlDoc.doctype) {
+        result += '<!DOCTYPE html>\n';
+      }
+      
+      // Format html element and its contents
+      const htmlElement = htmlDoc.documentElement;
+      if (htmlElement) {
+        result += formatNode(htmlElement);
+      }
+      
+      return result;
+      
+    } catch (error) {
+      console.error('Error formatting HTML:', error);
+      return formatHtmlManually(htmlString);
+    }
+  };
+
+  // Manual HTML formatting fallback
+  const formatHtmlManually = (htmlString) => {
+    try {
       let formatted = '';
       let indent = 0;
       const indentSize = 2;
       
-      // Split by < to process each tag
-      const parts = xml.split('<');
+      // Remove extra whitespace and split by tags
+      const cleaned = htmlString.replace(/>\s*</g, '><').replace(/\n\s*/g, ' ');
+      const parts = cleaned.split('<');
       
       for (let i = 0; i < parts.length; i++) {
-        if (i === 0 && parts[i] === '') continue; // Skip first empty part
+        if (i === 0 && parts[i] === '') continue;
         
         let part = parts[i];
         if (!part) continue;
         
-        // Check if this is a closing tag
         const isClosingTag = part.startsWith('/');
-        // Check if this is a self-closing tag
-        const isSelfClosing = part.endsWith('/>');
+        const isSelfClosing = part.endsWith('/>') || 
+          /^(br|hr|img|input|meta|link)\s*\/?>/.test(part);
         
         if (isClosingTag) {
           indent = Math.max(0, indent - 1);
         }
         
-        // Add indentation
         formatted += ' '.repeat(indent * indentSize);
         formatted += '<' + part;
         
-        // Add newline unless it's inline content
-        const tagEnd = part.indexOf('>');
-        if (tagEnd !== -1) {
-          const afterTag = part.substring(tagEnd + 1);
-          if (afterTag && !afterTag.match(/^\s*$/)) {
-            // This tag has content, don't add newline yet
-            formatted += '\n';
-          } else {
-            formatted += '\n';
-          }
-        }
+        // Add newline
+        formatted += '\n';
         
-        // Increase indent for opening tags (but not self-closing)
-        if (!isClosingTag && !isSelfClosing && tagEnd !== -1) {
+        if (!isClosingTag && !isSelfClosing && part.indexOf('>') !== -1) {
           indent++;
         }
       }
       
       return formatted.trim();
     } catch (error) {
-      console.error('Error formatting XML:', error);
-      
-      // Fallback: simple line-by-line formatting
-      try {
-        return xmlString
-          .replace(/></g, '>\n<')
-          .split('\n')
-          .map((line, index) => {
-            const trimmed = line.trim();
-            if (!trimmed) return '';
-            
-            let indentLevel = 0;
-            const openTags = xmlString.substring(0, xmlString.indexOf(trimmed)).match(/<[^\/][^>]*>/g) || [];
-            const closeTags = xmlString.substring(0, xmlString.indexOf(trimmed)).match(/<\/[^>]*>/g) || [];
-            indentLevel = Math.max(0, openTags.length - closeTags.length);
-            
-            if (trimmed.startsWith('</')) indentLevel = Math.max(0, indentLevel - 1);
-            
-            return '  '.repeat(indentLevel) + trimmed;
-          })
-          .filter(line => line.trim())
-          .join('\n');
-      } catch (fallbackError) {
-        return xmlString; // Return original if all formatting fails
-      }
+      return htmlString; // Return original if all formatting fails
     }
   };
 
@@ -1003,6 +1183,22 @@ export default function DQEmailDetails() {
             </>
           )}
 
+          {/* Template-XML Editor */}
+          {showEditor && dqEmail.htmlTemplateName && resources.template && (
+            <div className="mt-8">
+              <TemplateXMLEditor
+                dqEmail={dqEmail}
+                templateText={resources.template.text}
+                mapViewColumns={resources.mapViewColumns}
+                formatXml={formatXml}
+                formatHtml={formatHtml}
+                onSave={handleEditorSave}
+                onCancel={handleEditorCancel}
+                onChangesDetected={setHasUnsavedChanges}
+              />
+            </div>
+          )}
+
           {/* Action Buttons */}
           <div className="mt-8 flex justify-end space-x-4">
             <Link
@@ -1011,14 +1207,28 @@ export default function DQEmailDetails() {
             >
               Back to List
             </Link>
+            
+            {/* Show Edit Template button only for template-based emails */}
+            {dqEmail.htmlTemplateName && resources.template && !showEditor && (
+              <button
+                onClick={() => setShowEditor(true)}
+                className="px-6 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors flex items-center"
+              >
+                <PencilSquareIcon className="h-4 w-4 mr-2" />
+                Edit Template & Mapping
+              </button>
+            )}
+            
+
+            
             <button
               onClick={() => {
-                // TODO: Implement edit functionality
-                alert('Edit functionality coming soon!');
+                // TODO: Implement general edit functionality
+                alert('General edit functionality coming soon!');
               }}
               className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
             >
-              Edit Email
+              Edit Email Settings
             </button>
           </div>
         </div>

@@ -133,7 +133,10 @@ async function handleGet(req, res) {
 
 async function handlePut(req, res) {
   const { id } = req.query;
-  const { isActive, emailName, description, emailSubject, inDev } = req.body;
+  const { isActive, emailName, description, emailSubject, inDev, mapRules, hierarchy } = req.body;
+
+  console.log('PUT request for DQEmail ID:', id);
+  console.log('Request body:', req.body);
 
   if (!id) {
     return res.status(400).json({ 
@@ -181,6 +184,16 @@ async function handlePut(req, res) {
   if (emailSubject !== undefined) {
     updateFields.push('EmailSubject = @emailSubject');
     params.emailSubject = emailSubject?.trim() || null;
+  }
+
+  if (mapRules !== undefined) {
+    updateFields.push('MapRules = @mapRules');
+    params.mapRules = mapRules?.trim() || null;
+  }
+
+  if (hierarchy !== undefined) {
+    updateFields.push('hierarchy = @hierarchy');
+    params.hierarchy = hierarchy?.trim() || null;
   }
 
   if (updateFields.length === 0) {
