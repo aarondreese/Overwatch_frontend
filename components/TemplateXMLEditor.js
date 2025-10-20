@@ -29,6 +29,7 @@ export default function TemplateXMLEditor({
   const [emailField, setEmailField] = useState('');
   const [existingMappingsLoaded, setExistingMappingsLoaded] = useState(false);
   const [templateParseTimeout, setTemplateParseTimeout] = useState(null);
+  const [showDiffView, setShowDiffView] = useState(true); // Toggle between diff and side-by-side view
 
   // Auto-format HTML when component mounts
   useEffect(() => {
@@ -278,6 +279,372 @@ export default function TemplateXMLEditor({
     }
     
     return true; // Not found in template, is hidden
+  };
+
+  // Function to compute diff between two XML strings
+  const computeXMLDiff = (originalXML, newXML) => {
+    // Format both XML strings with proper indentation before comparison
+    const formatXMLForDiff = (xml) => {
+      if (!xml) return '';
+      
+      // Remove extra whitespace and format with consistent indentation
+      const lines = xml.split('\n')
+        .map(line => line.trim())
+        .filter(line => line.length > 0);
+      
+      let formatted = [];
+      let indentLevel = 0;
+      const indentSize = 2;
+      
+      for (let line of lines) {
+        // Check if this is a closing tag
+        if (line.startsWith('</')) {
+          indentLevel = Math.max(0, indentLevel - 1);
+        }
+        
+        // Add the line with proper indentation
+        formatted.push(' '.repeat(indentLevel * indentSize) + line);
+        
+        // Check if this is an opening tag (but not self-closing)
+        if (line.startsWith('<') && !line.startsWith('</') && !line.endsWith('/>') && !line.includes('</')) {
+          indentLevel++;
+        }
+      }
+      
+      return formatted.join('\n');
+    };
+    
+    const original = formatXMLForDiff(originalXML).split('\n');
+    const updated = formatXMLForDiff(newXML).split('\n');
+    const result = [];
+    
+    let i = 0, j = 0;
+    
+    while (i < original.length || j < updated.length) {
+      if (i >= original.length) {
+        // Remaining lines are additions
+        result.push({ type: 'added', line: updated[j], lineNumber: j + 1 });
+        j++;
+      } else if (j >= updated.length) {
+        // Remaining lines are deletions
+        result.push({ type: 'removed', line: original[i], lineNumber: i + 1 });
+        i++;
+      } else if (original[i] === updated[j]) {
+        // Lines are identical
+        result.push({ type: 'unchanged', line: original[i], lineNumber: j + 1 });
+        i++;
+        j++;
+      } else {
+        // Lines are different - check if it's a modification or add/delete
+        const originalTrimmed = original[i].trim();
+        const updatedTrimmed = updated[j].trim();
+        
+        if (originalTrimmed && updatedTrimmed && 
+            (originalTrimmed.includes(updatedTrimmed) || updatedTrimmed.includes(originalTrimmed) ||
+             originalTrimmed.split('=')[0] === updatedTrimmed.split('=')[0])) {
+          // This looks like a modification
+          result.push({ type: 'modified', line: updated[j], lineNumber: j + 1, originalLine: original[i] });
+          i++;
+          j++;
+        } else {
+          // Check ahead to see if this is an insertion or deletion
+          let foundMatch = false;
+          
+          // Look ahead in updated array for original[i]
+          for (let k = j + 1; k < Math.min(j + 5, updated.length); k++) {
+            if (original[i] === updated[k]) {
+              // Found original line later, so lines before it are additions
+              for (let l = j; l < k; l++) {
+                result.push({ type: 'added', line: updated[l], lineNumber: l + 1 });
+              }
+              result.push({ type: 'unchanged', line: original[i], lineNumber: k + 1 });
+              i++;
+              j = k + 1;
+              foundMatch = true;
+              break;
+            }
+          }
+          
+          if (!foundMatch) {
+            // Look ahead in original array for updated[j]
+            for (let k = i + 1; k < Math.min(i + 5, original.length); k++) {
+              if (updated[j] === original[k]) {
+                // Found updated line later, so lines before it are deletions
+                for (let l = i; l < k; l++) {
+                  result.push({ type: 'removed', line: original[l], lineNumber: l + 1 });
+                }
+                result.push({ type: 'unchanged', line: updated[j], lineNumber: j + 1 });
+                i = k + 1;
+                j++;
+                foundMatch = true;
+                break;
+              }
+            }
+          }
+          
+          if (!foundMatch) {
+            // No match found, treat as modification
+            result.push({ type: 'modified', line: updated[j], lineNumber: j + 1, originalLine: original[i] });
+            i++;
+            j++;
+          }
+        }
+      }
+    }
+    
+    return result;
+  };
+
+  // Component for HTML Template Editor with line numbers
+  const HTMLTemplateEditor = ({ value, onChange, placeholder }) => {
+    const lines = value.split('\n');
+    
+    return (
+      <div className="border border-gray-300 rounded-md overflow-hidden focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500">
+        <div className="flex h-96">
+          {/* Line numbers */}
+          <div className="bg-gray-50 border-r border-gray-300 text-xs text-gray-400 font-mono select-none">
+            <div className="px-3 py-3">
+              {lines.map((_, index) => (
+                <div key={index} className="text-right leading-6 h-6">
+                  {index + 1}
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          {/* Editor */}
+          <textarea
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            className="flex-1 p-3 border-none font-mono text-sm resize-none focus:outline-none leading-6"
+            placeholder={placeholder}
+            style={{ 
+              lineHeight: '1.5rem', // 24px to match line numbers
+              fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace'
+            }}
+          />
+        </div>
+      </div>
+    );
+  };
+
+  // Component to render XML diff with line numbers and colors
+  const XMLDiffViewer = ({ originalXML, newXML, title }) => {
+    const diff = computeXMLDiff(originalXML, newXML);
+    
+    // Function to highlight XML syntax using React elements
+    const highlightXMLSyntax = (line, type) => {
+      if (!line) return line;
+      
+      // Color scheme based on diff type
+      const getColors = (type) => {
+        switch (type) {
+          case 'added':
+            return {
+              tag: 'text-green-900 font-medium',
+              attr: 'text-green-700',
+              value: 'text-green-800',
+              text: 'text-green-800'
+            };
+          case 'removed':
+            return {
+              tag: 'text-red-900 font-medium',
+              attr: 'text-red-700', 
+              value: 'text-red-800',
+              text: 'text-red-800'
+            };
+          case 'modified':
+            return {
+              tag: 'text-orange-900 font-medium',
+              attr: 'text-orange-700',
+              value: 'text-orange-800', 
+              text: 'text-orange-800'
+            };
+          default:
+            return {
+              tag: 'text-blue-700 font-medium',
+              attr: 'text-purple-600',
+              value: 'text-green-600',
+              text: 'text-gray-800'
+            };
+        }
+      };
+      
+      const colors = getColors(type);
+      
+      // Extract leading whitespace (indentation)
+      const leadingWhitespaceMatch = line.match(/^(\s*)/);
+      const leadingWhitespace = leadingWhitespaceMatch ? leadingWhitespaceMatch[1] : '';
+      const contentLine = line.substring(leadingWhitespace.length);
+      
+      // Parse XML line and create React elements with proper styling
+      const parts = [];
+      
+      // Add leading whitespace as preserved spaces
+      if (leadingWhitespace) {
+        parts.push(
+          <span key="indent" style={{ whiteSpace: 'pre' }}>
+            {leadingWhitespace}
+          </span>
+        );
+      }
+      
+      let currentIndex = 0;
+      
+      // Find XML tags in the content (after leading whitespace)
+      const tagRegex = /<\/?[^>]+>/g;
+      let tagMatch;
+      
+      while ((tagMatch = tagRegex.exec(contentLine)) !== null) {
+        // Add text before tag
+        if (tagMatch.index > currentIndex) {
+          parts.push(
+            <span key={`text-${currentIndex}`} className={colors.text}>
+              {contentLine.substring(currentIndex, tagMatch.index)}
+            </span>
+          );
+        }
+        
+        // Parse the tag content
+        const tagContent = tagMatch[0];
+        const tagParts = [];
+        
+        // Simple parsing for tag name and attributes
+        const attrRegex = /(\w+)="([^"]*)"/g;
+        let lastAttrIndex = 0;
+        let attrMatch;
+        
+        // Find tag name (everything before first space or >)
+        const tagNameMatch = tagContent.match(/<\/?([^\s>]+)/);
+        if (tagNameMatch) {
+          const tagNameEnd = tagContent.indexOf(tagNameMatch[1]) + tagNameMatch[1].length;
+          tagParts.push(
+            <span key={`tag-name-${tagMatch.index}`} className={colors.tag}>
+              {tagContent.substring(0, tagNameEnd)}
+            </span>
+          );
+          lastAttrIndex = tagNameEnd;
+        }
+        
+        // Find attributes
+        while ((attrMatch = attrRegex.exec(tagContent)) !== null) {
+          // Add text between attributes
+          if (attrMatch.index > lastAttrIndex) {
+            tagParts.push(
+              <span key={`between-${attrMatch.index}`} className={colors.tag}>
+                {tagContent.substring(lastAttrIndex, attrMatch.index)}
+              </span>
+            );
+          }
+          
+          // Add attribute name
+          tagParts.push(
+            <span key={`attr-name-${attrMatch.index}`} className={colors.attr}>
+              {attrMatch[1]}
+            </span>
+          );
+          
+          // Add equals and opening quote
+          tagParts.push(
+            <span key={`equals-${attrMatch.index}`} className={colors.tag}>
+              ="
+            </span>
+          );
+          
+          // Add attribute value
+          tagParts.push(
+            <span key={`attr-value-${attrMatch.index}`} className={colors.value}>
+              {attrMatch[2]}
+            </span>
+          );
+          
+          // Add closing quote
+          tagParts.push(
+            <span key={`quote-${attrMatch.index}`} className={colors.tag}>
+              "
+            </span>
+          );
+          
+          lastAttrIndex = attrMatch.index + attrMatch[0].length;
+        }
+        
+        // Add remaining tag content
+        if (lastAttrIndex < tagContent.length) {
+          tagParts.push(
+            <span key={`tag-end-${tagMatch.index}`} className={colors.tag}>
+              {tagContent.substring(lastAttrIndex)}
+            </span>
+          );
+        }
+        
+        parts.push(
+          <span key={`tag-${tagMatch.index}`}>
+            {tagParts}
+          </span>
+        );
+        
+        currentIndex = tagMatch.index + tagMatch[0].length;
+      }
+      
+      // Add remaining text
+      if (currentIndex < contentLine.length) {
+        parts.push(
+          <span key={`final-text-${currentIndex}`} className={colors.text}>
+            {contentLine.substring(currentIndex)}
+          </span>
+        );
+      }
+      
+      return <span>{parts}</span>;
+    };
+    
+    return (
+      <div className="mb-4">
+        <h4 className="text-sm font-medium text-gray-700 mb-2">{title}</h4>
+        <div className="bg-gray-50 border rounded-lg overflow-hidden">
+          <div className="max-h-96 overflow-auto font-mono text-sm">
+            {diff.map((item, index) => (
+              <div key={index} className={`flex ${
+                item.type === 'added' ? 'bg-green-50' :
+                item.type === 'removed' ? 'bg-red-50' :
+                item.type === 'modified' ? 'bg-orange-50' :
+                'bg-white'
+              }`}>
+                <div className={`w-12 px-2 py-1 text-right border-r text-gray-400 text-xs ${
+                  item.type === 'added' ? 'bg-green-100' :
+                  item.type === 'removed' ? 'bg-red-100' :
+                  item.type === 'modified' ? 'bg-orange-100' :
+                  'bg-gray-100'
+                }`}>
+                  {item.type === 'removed' ? '-' : item.lineNumber}
+                </div>
+                <div className={`flex-1 px-3 py-1 ${
+                  item.type === 'added' ? 'text-green-800' :
+                  item.type === 'removed' ? 'text-red-800' :
+                  item.type === 'modified' ? 'text-orange-800' :
+                  'text-gray-800'
+                }`}>
+                  {item.type === 'modified' && item.originalLine && (
+                    <div className="text-red-600 opacity-75 line-through mb-1">
+                      {highlightXMLSyntax(item.originalLine, 'removed')}
+                    </div>
+                  )}
+                  <div className={`${
+                    item.type === 'added' ? 'font-medium' :
+                    item.type === 'removed' ? 'line-through opacity-75' :
+                    item.type === 'modified' ? 'font-medium' :
+                    ''
+                  }`}>
+                    {highlightXMLSyntax(item.line, item.type)}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
   };
 
   // Parse ^for directives from HTML template
@@ -772,10 +1139,9 @@ export default function TemplateXMLEditor({
             Format
           </button>
         </div>
-        <textarea
+        <HTMLTemplateEditor
           value={htmlTemplate}
-          onChange={(e) => handleTemplateChange(e.target.value)}
-          className="w-full h-96 p-3 border border-gray-300 rounded-md font-mono text-sm resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          onChange={handleTemplateChange}
           placeholder="Enter your HTML template with ^for directives..."
         />
       </div>
@@ -906,28 +1272,35 @@ export default function TemplateXMLEditor({
                     {level.variables.map((variable, varIndex) => (
                       <div key={varIndex} className="bg-white rounded border border-gray-200 p-3">
                         <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <div className="text-sm font-medium text-gray-900 flex items-center">
-                              {variable.isHidden ? (
-                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800 mr-2">
-                                  Hidden Field
-                                </span>
-                              ) : (
-                                <span className="mr-2">Template Variable:</span>
-                              )}
-                              {variable.isHidden ? (
-                                <code className="bg-gray-100 px-2 py-1 rounded text-xs">
-                                  {variable.fieldName} (non-display)
-                                </code>
-                              ) : (
-                                <code className="bg-gray-100 px-2 py-1 rounded text-xs">
-                                  {`{{${variable.templateVar}}}`}
-                                </code>
-                              )}
+                          <div className="flex items-center">
+                            {/* Line number badge */}
+                            <div className="w-6 h-6 bg-gray-100 border border-gray-300 rounded-full text-xs text-gray-500 font-mono flex items-center justify-center mr-3 flex-shrink-0">
+                              {varIndex + 1}
                             </div>
-                            <div className="text-xs text-gray-500 mt-1">
-                              Field: {variable.fieldName}
-                              {variable.isHidden && <span className=" text-orange-600"> • Used for grouping only</span>}
+                            
+                            <div className="flex-1">
+                              <div className="text-sm font-medium text-gray-900 flex items-center">
+                                {variable.isHidden ? (
+                                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800 mr-2">
+                                    Hidden Field
+                                  </span>
+                                ) : (
+                                  <span className="mr-2">Template Variable:</span>
+                                )}
+                                {variable.isHidden ? (
+                                  <code className="bg-gray-100 px-2 py-1 rounded text-xs">
+                                    {variable.fieldName} (non-display)
+                                  </code>
+                                ) : (
+                                  <code className="bg-gray-100 px-2 py-1 rounded text-xs">
+                                    {`{{${variable.templateVar}}}`}
+                                  </code>
+                                )}
+                              </div>
+                              <div className="text-xs text-gray-500 mt-1">
+                                Field: {variable.fieldName}
+                                {variable.isHidden && <span className=" text-orange-600"> • Used for grouping only</span>}
+                              </div>
                             </div>
                           </div>
                           
@@ -957,9 +1330,7 @@ export default function TemplateXMLEditor({
                           </div>
                         </div>
                       </div>
-                    ))}
-                    
-                    {/* Add Hidden Field Dropdown */}
+                    ))}                    {/* Add Hidden Field Dropdown */}
                     <div className="bg-gray-50 rounded border border-dashed border-gray-300 p-3">
                       <div className="flex items-center space-x-3">
                         <PlusIcon className="h-4 w-4 text-gray-600 flex-shrink-0" />
@@ -1018,31 +1389,86 @@ export default function TemplateXMLEditor({
         </div>
       )}
 
-      {/* XML Comparison - Two Column Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-lg shadow border p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+      {/* XML Comparison with View Toggle */}
+      <div className="bg-white rounded-lg shadow border p-6">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold text-gray-900 flex items-center">
             <CodeBracketIcon className="h-5 w-5 mr-2" />
-            Current XML (Database)
+            XML Comparison
           </h3>
-          <div className="bg-gray-50 border border-gray-200 rounded p-4 max-h-96 overflow-y-auto">
-            <pre className="text-xs font-mono text-gray-800 whitespace-pre-wrap">
-              {dqEmail.mapRules ? formatXml(dqEmail.mapRules) : 'No existing MapRules'}
-            </pre>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setShowDiffView(true)}
+              className={`px-3 py-1 text-sm rounded ${
+                showDiffView 
+                  ? 'bg-blue-100 text-blue-700 border border-blue-300' 
+                  : 'bg-gray-100 text-gray-600 border border-gray-300'
+              }`}
+            >
+              Diff View
+            </button>
+            <button
+              onClick={() => setShowDiffView(false)}
+              className={`px-3 py-1 text-sm rounded ${
+                !showDiffView 
+                  ? 'bg-blue-100 text-blue-700 border border-blue-300' 
+                  : 'bg-gray-100 text-gray-600 border border-gray-300'
+              }`}
+            >
+              Side-by-Side
+            </button>
           </div>
         </div>
         
-        <div className="bg-white rounded-lg shadow border p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-            <CodeBracketIcon className="h-5 w-5 mr-2" />
-            Generated XML (Preview)
-          </h3>
-          <div className="bg-blue-50 border border-blue-200 rounded p-4 max-h-96 overflow-y-auto">
-            <pre className="text-xs font-mono text-blue-800 whitespace-pre-wrap">
-              {generatedXML ? formatXml(generatedXML) : 'Template parsing will generate XML here...'}
-            </pre>
+        {showDiffView ? (
+          // Diff View
+          dqEmail.mapRules && generatedXML ? (
+            <XMLDiffViewer 
+              originalXML={formatXml(dqEmail.mapRules)}
+              newXML={formatXml(generatedXML)}
+              title="Current vs Generated XML (Green=Added, Red=Removed, Orange=Modified)"
+            />
+          ) : (
+            <div className="text-center py-8 text-gray-500">
+              {!dqEmail.mapRules ? 'No existing MapRules to compare' : 'Generate XML to see diff'}
+            </div>
+          )
+        ) : (
+          // Side-by-Side View
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div>
+              <h4 className="text-sm font-medium text-gray-700 mb-2">Current XML (Database)</h4>
+              <div className="bg-gray-50 border border-gray-200 rounded p-4 max-h-96 overflow-y-auto">
+                <div className="flex">
+                  <div className="w-8 bg-gray-100 border-r text-xs text-gray-400 font-mono">
+                    {dqEmail.mapRules ? formatXml(dqEmail.mapRules).split('\n').map((_, i) => (
+                      <div key={i} className="px-1 text-right">{i + 1}</div>
+                    )) : <div className="px-1 text-right">1</div>}
+                  </div>
+                  <pre className="text-xs font-mono text-gray-800 whitespace-pre-wrap px-3 flex-1">
+                    {dqEmail.mapRules ? formatXml(dqEmail.mapRules) : 'No existing MapRules'}
+                  </pre>
+                </div>
+              </div>
+            </div>
+            
+            <div>
+              <h4 className="text-sm font-medium text-gray-700 mb-2">Generated XML (Preview)</h4>
+              <div className="bg-blue-50 border border-blue-200 rounded p-4 max-h-96 overflow-y-auto">
+                <div className="flex">
+                  <div className="w-8 bg-blue-100 border-r text-xs text-blue-400 font-mono">
+                    {generatedXML ? formatXml(generatedXML).split('\n').map((_, i) => (
+                      <div key={i} className="px-1 text-right">{i + 1}</div>
+                    )) : <div className="px-1 text-right">1</div>}
+                  </div>
+                  <pre className="text-xs font-mono text-blue-800 whitespace-pre-wrap px-3 flex-1">
+                    {generatedXML ? formatXml(generatedXML) : 'Template parsing will generate XML here...'}
+                  </pre>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
