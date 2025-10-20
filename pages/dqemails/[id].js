@@ -1,3 +1,11 @@
+// Shared color sequence for highlighting and loop keys
+const loopColors = [
+  { bg: 'bg-blue-200', text: 'text-blue-900', border: 'border-blue-300', light: 'bg-blue-50' },
+  { bg: 'bg-green-200', text: 'text-green-900', border: 'border-green-300', light: 'bg-green-50' },
+  { bg: 'bg-purple-200', text: 'text-purple-900', border: 'border-purple-300', light: 'bg-purple-50' },
+  { bg: 'bg-orange-200', text: 'text-orange-900', border: 'border-orange-300', light: 'bg-orange-50' },
+  { bg: 'bg-pink-200', text: 'text-pink-900', border: 'border-pink-300', light: 'bg-pink-50' },
+];
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
@@ -447,26 +455,18 @@ export default function DQEmailDetails() {
     return directives.sort((a, b) => a.position - b.position);
   };
 
-  // Highlight ^For directives in template with color coding
+  // Highlight ^For directives in template with color coding (order matches color key)
   const highlightForDirectives = (templateText, forDirectives) => {
     if (!templateText || !forDirectives.length) return templateText;
 
-    const colors = [
-      { bg: 'bg-blue-200', text: 'text-blue-900', border: 'border-blue-300' },
-      { bg: 'bg-green-200', text: 'text-green-900', border: 'border-green-300' },
-      { bg: 'bg-purple-200', text: 'text-purple-900', border: 'border-purple-300' },
-      { bg: 'bg-orange-200', text: 'text-orange-900', border: 'border-orange-300' },
-      { bg: 'bg-pink-200', text: 'text-pink-900', border: 'border-pink-300' },
-    ];
+    // Use the shared color array
+    const colors = loopColors;
 
     let highlightedText = templateText;
-    
-    // Sort directives by position in reverse order to avoid position shifting during replacement
-    const sortedDirectives = [...forDirectives].sort((a, b) => b.position - a.position);
-    
-    sortedDirectives.forEach((directive, index) => {
+
+    // Replace directives in order of appearance (not reverse)
+    forDirectives.forEach((directive, index) => {
       const color = colors[index % colors.length];
-      // Use the original case found in the template
       const originalPattern = directive.originalCase;
       const replacement = `<span class="inline-block px-2 py-1 rounded ${color.bg} ${color.text} ${color.border} border font-semibold">${originalPattern}</span>`;
       highlightedText = highlightedText.replace(originalPattern, replacement);
@@ -934,15 +934,7 @@ export default function DQEmailDetails() {
 
                     return (
                       <div className="space-y-6">
-                        {/* Formatted XML Structure */}
-                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
-                          <h4 className="text-sm font-semibold text-gray-700 mb-3">MapRules XML Structure:</h4>
-                          <div className="bg-white border border-gray-300 rounded p-4 overflow-x-auto">
-                            <pre className="text-sm font-mono text-gray-800 whitespace-pre">
-                              {formatXml(dqEmail.mapRules)}
-                            </pre>
-                          </div>
-                        </div>
+
 
                         {/* Summary */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -967,20 +959,13 @@ export default function DQEmailDetails() {
                           const forDirectives = resources.template ? extractForDirectives(resources.template.text) : [];
                           if (forDirectives.length === 0) return null;
 
-                          const colors = [
-                            { bg: 'bg-blue-200', text: 'text-blue-900', border: 'border-blue-300', light: 'bg-blue-50' },
-                            { bg: 'bg-green-200', text: 'text-green-900', border: 'border-green-300', light: 'bg-green-50' },
-                            { bg: 'bg-purple-200', text: 'text-purple-900', border: 'border-purple-300', light: 'bg-purple-50' },
-                            { bg: 'bg-orange-200', text: 'text-orange-900', border: 'border-orange-300', light: 'bg-orange-50' },
-                            { bg: 'bg-pink-200', text: 'text-pink-900', border: 'border-pink-300', light: 'bg-pink-50' },
-                          ];
 
                           return (
                             <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
                               <h4 className="text-sm font-semibold text-gray-700 mb-3">Template Loop Color Key:</h4>
                               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                                 {forDirectives.map((directive, index) => {
-                                  const color = colors[index % colors.length];
+                                  const color = loopColors[index % loopColors.length];
                                   return (
                                     <div key={index} className={`p-3 rounded-lg border ${color.light} ${color.border}`}>
                                       <div className={`inline-block px-2 py-1 rounded text-xs font-mono ${color.bg} ${color.text} ${color.border} border mb-2`}>
@@ -1002,13 +987,8 @@ export default function DQEmailDetails() {
                         {(() => {
                           // Get ^For directives to determine color mapping
                           const forDirectives = resources.template ? extractForDirectives(resources.template.text) : [];
-                          const colors = [
-                            { bg: 'bg-blue-200', text: 'text-blue-900', border: 'border-blue-300', light: 'bg-blue-50' },
-                            { bg: 'bg-green-200', text: 'text-green-900', border: 'border-green-300', light: 'bg-green-50' },
-                            { bg: 'bg-purple-200', text: 'text-purple-900', border: 'border-purple-300', light: 'bg-purple-50' },
-                            { bg: 'bg-orange-200', text: 'text-orange-900', border: 'border-orange-300', light: 'bg-orange-50' },
-                            { bg: 'bg-pink-200', text: 'text-pink-900', border: 'border-pink-300', light: 'bg-pink-50' },
-                          ];
+                          // Use the same color array for highlighting in HTML Template
+                          const colors = loopColors;
 
                           // Parse the hierarchy from dqEmail.hierarchy (e.g., "serviceLeads>supportWorkers>properties")
                           const hierarchyOrder = dqEmail.hierarchy ? dqEmail.hierarchy.split('>') : [];
