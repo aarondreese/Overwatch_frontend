@@ -28,6 +28,7 @@ export default function TemplateXMLEditor({
   const [burstField, setBurstField] = useState('');
   const [emailField, setEmailField] = useState('');
   const [existingMappingsLoaded, setExistingMappingsLoaded] = useState(false);
+  const [templateParseTimeout, setTemplateParseTimeout] = useState(null);
 
   // Auto-format HTML when component mounts
   useEffect(() => {
@@ -38,7 +39,7 @@ export default function TemplateXMLEditor({
   }, [templateText, formatHtml, htmlTemplate]);
 
   // Parse existing mapRules XML to extract mappings and groupBy settings
-  const parseExistingMappings = (mapRulesXml, hierarchy, viewColumns) => {
+  const parseExistingMappings = (mapRulesXml, hierarchy, viewColumns, templateText) => {
     if (!mapRulesXml || !hierarchy) return { mappings: {}, updatedHierarchy: hierarchy };
     
     try {
@@ -130,6 +131,16 @@ export default function TemplateXMLEditor({
                 const templateVar = `${hierarchyLevel.variable}.${fieldName}`;
                 mappings[templateVar] = actualColumnName;
                 
+                // Store all XML fields for later merging with template-parsed fields
+                if (!hierarchyLevel.xmlFields) {
+                  hierarchyLevel.xmlFields = [];
+                }
+                hierarchyLevel.xmlFields.push({
+                  fieldName,
+                  templateVar,
+                  mappedColumn: actualColumnName
+                });
+                
                 if (actualColumn && actualColumn.columnName !== xmlColumnName) {
                   console.log(`📝 Column mapping case corrected: ${xmlColumnName} -> ${actualColumnName}`);
                 }
@@ -147,12 +158,41 @@ export default function TemplateXMLEditor({
       });
       
       console.log('Parsed existing mappings:', mappings);
-      console.log('Final updated hierarchy with groupBy values:', updatedHierarchy.map(h => ({
+      // Merge XML fields with template-parsed hierarchy, determining visibility from template
+      updatedHierarchy.forEach(level => {
+        if (level.xmlFields) {
+          level.xmlFields.forEach(xmlField => {
+            // Check if this field is already in variables from template parsing
+            const existsInVariables = level.variables.some(v => v.templateVar === xmlField.templateVar);
+            if (!existsInVariables) {
+              // Field exists in XML but not in template parsing, add it as potentially hidden
+              const isHidden = isFieldHidden(xmlField.templateVar, templateText);
+              level.variables.push({
+                templateVar: xmlField.templateVar,
+                fieldName: xmlField.fieldName,
+                mappedColumn: xmlField.mappedColumn,
+                isHidden: isHidden
+              });
+            } else {
+              // Field exists in both XML and template, ensure it's marked as visible
+              const existingVar = level.variables.find(v => v.templateVar === xmlField.templateVar);
+              if (existingVar) {
+                existingVar.isHidden = false;
+              }
+            }
+          });
+          // Clean up temporary xmlFields property
+          delete level.xmlFields;
+        }
+      });
+      
+      console.log('Final updated hierarchy with groupBy values and hidden fields:', updatedHierarchy.map(h => ({
         collection: h.collection,
         variable: h.variable,
         groupBy: h.groupBy,
         originalCollection: h.originalCollection,
-        variablesCount: h.variables?.length
+        variablesCount: h.variables?.length,
+        hiddenFieldsCount: h.variables?.filter(v => v.isHidden)?.length || 0
       })));
       
       return { mappings, updatedHierarchy };
@@ -195,7 +235,7 @@ export default function TemplateXMLEditor({
         existingMappingsLoaded
       });
       
-      const { mappings, updatedHierarchy } = parseExistingMappings(dqEmail.mapRules, parsedHierarchy, mapViewColumns);
+      const { mappings, updatedHierarchy } = parseExistingMappings(dqEmail.mapRules, parsedHierarchy, mapViewColumns, htmlTemplate);
       if (Object.keys(mappings).length > 0) {
         console.log('Loading existing mappings:', mappings);
         console.log('Updated hierarchy with groupBy:', updatedHierarchy);
@@ -214,7 +254,7 @@ export default function TemplateXMLEditor({
         setExistingMappingsLoaded(true);
       }
     }
-  }, [dqEmail?.mapRules, parsedHierarchy.length, existingMappingsLoaded, mapViewColumns]); // Added mapViewColumns
+  }, [dqEmail?.mapRules, parsedHierarchy.length, existingMappingsLoaded, mapViewColumns, htmlTemplate]); // Added htmlTemplate
 
   // Debug: Log when parsedHierarchy actually changes
   useEffect(() => {
@@ -224,6 +264,21 @@ export default function TemplateXMLEditor({
       groupBy: h.groupBy
     })));
   }, [parsedHierarchy]);
+
+  // Determine if a field is hidden by checking if it appears in the template
+  const isFieldHidden = (templateVar, templateText) => {
+    if (!templateText) return false;
+    const variableRegex = /\{\{([^}]+)\}\}/g;
+    let match;
+    
+    while ((match = variableRegex.exec(templateText)) !== null) {
+      if (match[1].trim() === templateVar) {
+        return false; // Found in template, not hidden
+      }
+    }
+    
+    return true; // Not found in template, is hidden
+  };
 
   // Parse ^for directives from HTML template
   const parseTemplateHierarchy = (template) => {
@@ -427,6 +482,218 @@ export default function TemplateXMLEditor({
     ));
   };
 
+  const addHiddenField = (levelIndex, columnName) => {
+    if (!columnName) return;
+    
+    const templateVar = `${parsedHierarchy[levelIndex].variable}.${columnName}`;
+    
+    setParsedHierarchy(prev => prev.map((level, index) => {
+      if (index === levelIndex) {
+        const newVariable = {
+          templateVar: templateVar,
+          fieldName: columnName,
+          mappedColumn: null,
+          isHidden: true // Mark as hidden field
+        };
+        
+        return {
+          ...level,
+          variables: [...level.variables, newVariable]
+        };
+      }
+      return level;
+    }));
+    
+    // Automatically set the column mapping since user selected a specific column
+    setColumnMappings(prev => ({
+      ...prev,
+      [templateVar]: columnName
+    }));
+  };
+
+  // Get available columns that haven't been mapped yet in this level
+  const getUnmappedColumns = (levelIndex) => {
+    if (!mapViewColumns) return [];
+    
+    const currentLevel = parsedHierarchy[levelIndex];
+    if (!currentLevel) return [];
+    
+    // Get all currently mapped columns in this level
+    const mappedColumns = new Set();
+    currentLevel.variables.forEach(variable => {
+      const mappedColumn = columnMappings[variable.templateVar];
+      if (mappedColumn) {
+        mappedColumns.add(mappedColumn);
+      }
+    });
+    
+    // Return columns that aren't mapped yet
+    return mapViewColumns.filter(col => !mappedColumns.has(col.columnName));
+  };
+
+  const removeHiddenField = (levelIndex, varIndex) => {
+    setParsedHierarchy(prev => prev.map((level, index) => {
+      if (index === levelIndex) {
+        const newVariables = level.variables.filter((_, i) => i !== varIndex);
+        return {
+          ...level,
+          variables: newVariables
+        };
+      }
+      return level;
+    }));
+  };
+
+  // Get available columns for GroupBy dropdown based on hierarchy rules
+  const getAvailableGroupByColumns = (levelIndex) => {
+    if (!mapViewColumns) return [];
+    
+    // For level 0 (root level), all columns are available
+    if (levelIndex === 0) {
+      return mapViewColumns.map(col => ({ ...col, fromParent: false }));
+    }
+    
+    // For child levels, only columns that are mapped in parent levels are available
+    const availableColumns = [];
+    
+    // Get all columns mapped in parent levels (levels 0 to levelIndex-1)
+    for (let parentLevel = 0; parentLevel < levelIndex; parentLevel++) {
+      const parentLevelData = parsedHierarchy[parentLevel];
+      if (parentLevelData) {
+        parentLevelData.variables.forEach(variable => {
+          const mappedColumn = columnMappings[variable.templateVar];
+          if (mappedColumn) {
+            // Find the actual column info
+            const columnInfo = mapViewColumns.find(col => col.columnName === mappedColumn);
+            if (columnInfo) {
+              // Check if not already added
+              if (!availableColumns.find(existing => existing.columnName === columnInfo.columnName)) {
+                availableColumns.push({ 
+                  ...columnInfo, 
+                  fromParent: true,
+                  parentLevel: parentLevel 
+                });
+              }
+            }
+          }
+        });
+      }
+    }
+    
+    return availableColumns;
+  };
+
+  const handleTemplateChange = (newTemplate) => {
+    setHtmlTemplate(newTemplate);
+    
+    // Clear existing timeout
+    if (templateParseTimeout) {
+      clearTimeout(templateParseTimeout);
+    }
+    
+    // Set new timeout for debounced parsing
+    const timeoutId = setTimeout(() => {
+      console.log('Debounced template parsing triggered');
+      // Use a callback to get the current state values at execution time
+      setParsedHierarchy(currentHierarchy => {
+        setColumnMappings(currentMappings => {
+          reparseTemplateAndUpdateVisibility(newTemplate, currentMappings, currentHierarchy);
+          return currentMappings; // Don't change columnMappings
+        });
+        return currentHierarchy; // Return original hierarchy, will be updated in reparseTemplateAndUpdateVisibility
+      });
+    }, 300);
+    
+    setTemplateParseTimeout(timeoutId);
+  };
+
+  // Re-parse template and update field visibility
+  const reparseTemplateAndUpdateVisibility = (templateText, currentColumnMappings, currentHierarchy) => {
+    if (!currentHierarchy.length) return;
+    
+    console.log('Re-evaluating field visibility and detecting new template variables');
+    console.log('Current column mappings:', currentColumnMappings);
+    
+    // Extract all template variables from current template
+    const variableRegex = /\{\{([^}]+)\}\}/g;
+    const currentTemplateVars = new Set();
+    let match;
+    
+    while ((match = variableRegex.exec(templateText)) !== null) {
+      currentTemplateVars.add(match[1].trim());
+    }
+    
+    const updatedHierarchy = currentHierarchy.map(level => {
+      // First, update existing variables' visibility and remove orphaned hidden fields
+      const updatedVariables = level.variables.filter(variable => {
+        const isInTemplate = currentTemplateVars.has(variable.templateVar);
+        const isMapped = currentColumnMappings[variable.templateVar] && currentColumnMappings[variable.templateVar] !== '';
+        
+        console.log(`Checking field ${variable.templateVar}: inTemplate=${isInTemplate}, isMapped=${isMapped}, isHidden=${variable.isHidden}`);
+        
+        // Remove if: hidden + not in template + not mapped
+        if (variable.isHidden && !isInTemplate && !isMapped) {
+          console.log(`Removing orphaned hidden field: ${variable.templateVar} (not in template and not mapped)`);
+          return false;
+        }
+        
+        return true;
+      }).map(variable => {
+        const wasHidden = variable.isHidden;
+        const isNowHidden = isFieldHidden(variable.templateVar, templateText);
+        
+        if (wasHidden !== isNowHidden) {
+          console.log(`Field visibility changed: ${variable.templateVar} was ${wasHidden ? 'hidden' : 'visible'}, now ${isNowHidden ? 'hidden' : 'visible'}`);
+        }
+        
+        return {
+          ...variable,
+          isHidden: isNowHidden
+        };
+      });
+      
+      // Find template variables that belong to this level but aren't tracked yet
+      const existingVars = new Set(updatedVariables.map(v => v.templateVar));
+      const newVariables = [];
+      
+      [...currentTemplateVars].forEach(templateVar => {
+        // Check if this template variable belongs to this level (starts with level.variable.)
+        if (templateVar.startsWith(level.variable + '.') && !existingVars.has(templateVar)) {
+          const fieldName = templateVar.split('.')[1];
+          console.log(`Found new template variable: ${templateVar} (field: ${fieldName}) for level ${level.collection}`);
+          
+          newVariables.push({
+            templateVar: templateVar,
+            fieldName: fieldName,
+            mappedColumn: null,
+            isHidden: isFieldHidden(templateVar, templateText)
+          });
+        }
+      });
+      
+      if (newVariables.length > 0) {
+        console.log(`Adding ${newVariables.length} new template variables to level ${level.collection}`);
+      }
+      
+      return {
+        ...level,
+        variables: [...updatedVariables, ...newVariables]
+      };
+    });
+    
+    console.log('Setting updated hierarchy:', updatedHierarchy);
+    setParsedHierarchy(updatedHierarchy);
+  };
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (templateParseTimeout) {
+        clearTimeout(templateParseTimeout);
+      }
+    };
+  }, [templateParseTimeout]);
+
   const handleSave = () => {
     if (onSave) {
       // Build hierarchy string for database (e.g., "serviceLeads>supportWorkers>properties")
@@ -507,7 +774,7 @@ export default function TemplateXMLEditor({
         </div>
         <textarea
           value={htmlTemplate}
-          onChange={(e) => setHtmlTemplate(e.target.value)}
+          onChange={(e) => handleTemplateChange(e.target.value)}
           className="w-full h-96 p-3 border border-gray-300 rounded-md font-mono text-sm resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           placeholder="Enter your HTML template with ^for directives..."
         />
@@ -596,16 +863,39 @@ export default function TemplateXMLEditor({
                           className="px-3 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500"
                         >
                           <option value="">Select column...</option>
-                          {mapViewColumns?.map(col => (
+                          {getAvailableGroupByColumns(levelIndex).map(col => (
                             <option key={col.columnName} value={col.columnName}>
-                              {col.columnName}
+                              {col.columnName} ({col.dataType})
+                              {col.fromParent && ' • from parent level'}
                             </option>
                           ))}
                         </select>
+                        {/* Validation feedback */}
+                        {levelIndex > 0 && (
+                          <div className="text-xs mt-1">
+                            {getAvailableGroupByColumns(levelIndex).length === 0 ? (
+                              <span className="text-red-600 bg-red-50 px-2 py-1 rounded">
+                                ⚠️ No fields available from parent levels
+                              </span>
+                            ) : level.groupBy && !getAvailableGroupByColumns(levelIndex).find(col => col.columnName === level.groupBy) ? (
+                              <span className="text-orange-600 bg-orange-50 px-2 py-1 rounded">
+                                ⚠️ Selected field not available from parent levels
+                              </span>
+                            ) : level.groupBy ? (
+                              <span className="text-green-600 bg-green-50 px-2 py-1 rounded">
+                                ✅ Valid selection
+                              </span>
+                            ) : (
+                              <span className="text-gray-500">
+                                {getAvailableGroupByColumns(levelIndex).length} fields available from parent levels
+                              </span>
+                            )}
+                          </div>
+                        )}
                         {/* Debug info - remove after fixing */}
                         {process.env.NODE_ENV === 'development' && (
                           <span className="text-xs text-gray-500 bg-yellow-100 px-2 py-1 rounded">
-                            Current: "{level.groupBy || 'none'}" | Index: {levelIndex}
+                            Current: "{level.groupBy || 'none'}" | Available: {getAvailableGroupByColumns(levelIndex).length}
                           </span>
                         )}
                       </div>
@@ -617,13 +907,27 @@ export default function TemplateXMLEditor({
                       <div key={varIndex} className="bg-white rounded border border-gray-200 p-3">
                         <div className="flex items-center justify-between">
                           <div className="flex-1">
-                            <div className="text-sm font-medium text-gray-900">
-                              Template Variable: <code className="bg-gray-100 px-2 py-1 rounded text-xs">
-                                {`{{${variable.templateVar}}}`}
-                              </code>
+                            <div className="text-sm font-medium text-gray-900 flex items-center">
+                              {variable.isHidden ? (
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800 mr-2">
+                                  Hidden Field
+                                </span>
+                              ) : (
+                                <span className="mr-2">Template Variable:</span>
+                              )}
+                              {variable.isHidden ? (
+                                <code className="bg-gray-100 px-2 py-1 rounded text-xs">
+                                  {variable.fieldName} (non-display)
+                                </code>
+                              ) : (
+                                <code className="bg-gray-100 px-2 py-1 rounded text-xs">
+                                  {`{{${variable.templateVar}}}`}
+                                </code>
+                              )}
                             </div>
                             <div className="text-xs text-gray-500 mt-1">
                               Field: {variable.fieldName}
+                              {variable.isHidden && <span className=" text-orange-600"> • Used for grouping only</span>}
                             </div>
                           </div>
                           
@@ -641,10 +945,57 @@ export default function TemplateXMLEditor({
                                 </option>
                               ))}
                             </select>
+                            {variable.isHidden && (
+                              <button
+                                onClick={() => removeHiddenField(levelIndex, varIndex)}
+                                className="text-red-600 hover:text-red-800 transition-colors p-1"
+                                title="Remove hidden field"
+                              >
+                                <TrashIcon className="h-4 w-4" />
+                              </button>
+                            )}
                           </div>
                         </div>
                       </div>
                     ))}
+                    
+                    {/* Add Hidden Field Dropdown */}
+                    <div className="bg-gray-50 rounded border border-dashed border-gray-300 p-3">
+                      <div className="flex items-center space-x-3">
+                        <PlusIcon className="h-4 w-4 text-gray-600 flex-shrink-0" />
+                        <div className="flex-1">
+                          <select
+                            onChange={(e) => {
+                              if (e.target.value) {
+                                addHiddenField(levelIndex, e.target.value);
+                                e.target.value = ''; // Reset selection
+                              }
+                            }}
+                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            disabled={getUnmappedColumns(levelIndex).length === 0}
+                          >
+                            <option value="">
+                              {getUnmappedColumns(levelIndex).length === 0 
+                                ? 'All available columns are already mapped' 
+                                : 'Select a column to add as hidden field...'
+                              }
+                            </option>
+                            {getUnmappedColumns(levelIndex).map(col => (
+                              <option key={col.columnName} value={col.columnName}>
+                                {col.columnName} ({col.dataType})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                      <div className="text-xs text-gray-500 mt-2 ml-7">
+                        Add a field that exists in the view but is not displayed in the email template.
+                        These fields can be used for grouping in child levels.
+                        <span className="block mt-1 font-medium">
+                          {getUnmappedColumns(levelIndex).length} unmapped columns available
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               );
