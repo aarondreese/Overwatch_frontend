@@ -1,16 +1,46 @@
 // Shared color sequence for highlighting and loop keys
 const loopColors = [
-  { bg: 'bg-blue-200', text: 'text-blue-900', border: 'border-blue-300', light: 'bg-blue-50' },
-  { bg: 'bg-green-200', text: 'text-green-900', border: 'border-green-300', light: 'bg-green-50' },
-  { bg: 'bg-purple-200', text: 'text-purple-900', border: 'border-purple-300', light: 'bg-purple-50' },
-  { bg: 'bg-orange-200', text: 'text-orange-900', border: 'border-orange-300', light: 'bg-orange-50' },
-  { bg: 'bg-pink-200', text: 'text-pink-900', border: 'border-pink-300', light: 'bg-pink-50' },
+  {
+    bg: "bg-blue-200",
+    text: "text-blue-900",
+    border: "border-blue-300",
+    light: "bg-blue-50",
+  },
+  {
+    bg: "bg-green-200",
+    text: "text-green-900",
+    border: "border-green-300",
+    light: "bg-green-50",
+  },
+  {
+    bg: "bg-purple-200",
+    text: "text-purple-900",
+    border: "border-purple-300",
+    light: "bg-purple-50",
+  },
+  {
+    bg: "bg-orange-200",
+    text: "text-orange-900",
+    border: "border-orange-300",
+    light: "bg-orange-50",
+  },
+  {
+    bg: "bg-pink-200",
+    text: "text-pink-900",
+    border: "border-pink-300",
+    light: "bg-pink-50",
+  },
 ];
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
 import Link from "next/link";
-import { getDQEmail, updateDQEmail, getDQEmailResources, updateHtmlTemplate } from "@/lib/client/dqemails";
+import {
+  getDQEmail,
+  updateDQEmail,
+  getDQEmailResources,
+  updateHtmlTemplate,
+} from "@/lib/client/dqemails";
 import TemplateXMLEditor from "@/components/TemplateXMLEditor";
 
 import {
@@ -36,7 +66,10 @@ export default function DQEmailDetails() {
   const [dqEmail, setDQEmail] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [resources, setResources] = useState({ template: null, mapViewColumns: null });
+  const [resources, setResources] = useState({
+    template: null,
+    mapViewColumns: null,
+  });
   const [resourcesLoading, setResourcesLoading] = useState(false);
   const [showEditor, setShowEditor] = useState(false);
   const [editorChanges, setEditorChanges] = useState(null);
@@ -54,7 +87,7 @@ export default function DQEmailDetails() {
       setError(null);
       const data = await getDQEmail(id);
       setDQEmail(data);
-      
+
       // If this email uses DQ check + map view approach, fetch additional resources
       if (data.htmlTemplateName || data.mapView) {
         fetchEmailResources(data.htmlTemplateName, data.mapView);
@@ -69,17 +102,17 @@ export default function DQEmailDetails() {
 
   const fetchEmailResources = async (templateName, mapViewName) => {
     if (!templateName && !mapViewName) return;
-    
+
     try {
-      console.log('Fetching resources for:', { templateName, mapViewName });
+      console.log("Fetching resources for:", { templateName, mapViewName });
       setResourcesLoading(true);
       const resourceData = await getDQEmailResources(templateName, mapViewName);
-      console.log('Resources fetched:', resourceData);
+      console.log("Resources fetched:", resourceData);
       setResources({
         template: resourceData.data.template || null,
         mapViewColumns: resourceData.data.mapViewColumns || null,
         templateError: resourceData.templateError,
-        mapViewError: resourceData.mapViewError
+        mapViewError: resourceData.mapViewError,
       });
     } catch (err) {
       console.error("Error fetching email resources:", err);
@@ -87,7 +120,7 @@ export default function DQEmailDetails() {
         template: null,
         mapViewColumns: null,
         templateError: `Error loading template: ${err.message}`,
-        mapViewError: `Error loading map view: ${err.message}`
+        mapViewError: `Error loading map view: ${err.message}`,
       });
     } finally {
       setResourcesLoading(false);
@@ -107,37 +140,45 @@ export default function DQEmailDetails() {
   const handleEditorSave = async (changes) => {
     try {
       setEditorChanges(changes);
-      
+
       // Update MapRules in DQEmail table
-      console.log('Updating DQ Email with:', { mapRules: changes.mapRules, hierarchy: changes.hierarchy });
-      const updateResult = await updateDQEmail(id, { 
+      console.log("Updating DQ Email with:", {
         mapRules: changes.mapRules,
-        hierarchy: changes.hierarchy // Update hierarchy if provided
+        hierarchy: changes.hierarchy,
       });
-      
-      console.log('Update result:', updateResult);
-      
+      const updateResult = await updateDQEmail(id, {
+        mapRules: changes.mapRules,
+        hierarchy: changes.hierarchy, // Update hierarchy if provided
+      });
+
+      console.log("Update result:", updateResult);
+
       if (!updateResult || !updateResult.success) {
-        const errorMessage = updateResult?.message || 'Unknown error occurred';
+        const errorMessage = updateResult?.message || "Unknown error occurred";
         throw new Error(`Failed to update DQ Email: ${errorMessage}`);
       }
-      
+
       // Update HTML template in HtmlTemplate table if template was changed
       if (changes.htmlTemplate && dqEmail.htmlTemplateName) {
-        const templateResult = await updateHtmlTemplate(dqEmail.htmlTemplateName, changes.htmlTemplate);
+        const templateResult = await updateHtmlTemplate(
+          dqEmail.htmlTemplateName,
+          changes.htmlTemplate
+        );
         if (!templateResult.success) {
-          throw new Error(`Failed to update HTML template: ${templateResult.message}`);
+          throw new Error(
+            `Failed to update HTML template: ${templateResult.message}`
+          );
         }
       }
-      
+
       // Refresh the DQ email data and resources
       await fetchDQEmail();
-      
+
       setShowEditor(false);
       setEditorChanges(null);
       setHasUnsavedChanges(false);
     } catch (err) {
-      console.error('Error saving editor changes:', err);
+      console.error("Error saving editor changes:", err);
       // Could add toast notification here
     }
   };
@@ -149,14 +190,15 @@ export default function DQEmailDetails() {
   };
 
   const formatDate = (dateString) => {
-    if (!dateString) return 'Never';
+    if (!dateString) return "Never";
     return new Date(dateString).toLocaleString();
   };
 
   const formatFrequency = (frequencyInMinutes) => {
-    if (!frequencyInMinutes) return 'Not configured';
+    if (!frequencyInMinutes) return "Not configured";
     if (frequencyInMinutes < 60) return `Every ${frequencyInMinutes} minutes`;
-    if (frequencyInMinutes < 1440) return `Every ${Math.floor(frequencyInMinutes / 60)} hours`;
+    if (frequencyInMinutes < 1440)
+      return `Every ${Math.floor(frequencyInMinutes / 60)} hours`;
     return `Every ${Math.floor(frequencyInMinutes / 1440)} days`;
   };
 
@@ -168,18 +210,21 @@ export default function DQEmailDetails() {
       // Parse XML using DOMParser
       const parser = new DOMParser();
       const xmlDoc = parser.parseFromString(mapRulesXml, "text/xml");
-      
-      const collections = xmlDoc.getElementsByTagName('collection');
+
+      const collections = xmlDoc.getElementsByTagName("collection");
       const mappings = [];
 
       for (let collection of collections) {
-        const collectionName = collection.getElementsByTagName('collectionname')[0]?.textContent;
-        const instanceName = collection.getElementsByTagName('instancename')[0]?.textContent;
-        const fields = collection.getElementsByTagName('field');
+        const collectionName =
+          collection.getElementsByTagName("collectionname")[0]?.textContent;
+        const instanceName =
+          collection.getElementsByTagName("instancename")[0]?.textContent;
+        const fields = collection.getElementsByTagName("field");
 
         for (let field of fields) {
-          const fieldName = field.getElementsByTagName('name')[0]?.textContent;
-          const columnName = field.getElementsByTagName('column')[0]?.textContent;
+          const fieldName = field.getElementsByTagName("name")[0]?.textContent;
+          const columnName =
+            field.getElementsByTagName("column")[0]?.textContent;
 
           if (fieldName && columnName) {
             mappings.push({
@@ -188,7 +233,7 @@ export default function DQEmailDetails() {
               templateVariable: `${instanceName}.${fieldName}`,
               mapColumn: columnName,
               fieldName,
-              columnName
+              columnName,
             });
           }
         }
@@ -196,20 +241,20 @@ export default function DQEmailDetails() {
 
       return mappings;
     } catch (error) {
-      console.error('Error parsing MapRules XML:', error);
+      console.error("Error parsing MapRules XML:", error);
       return [];
     }
   };
 
   // Format XML with proper indentation - keeps simple content tags on same line
   const formatXml = (xmlString) => {
-    if (!xmlString) return '';
+    if (!xmlString) return "";
 
     try {
       // Parse using DOMParser for better handling
       const parser = new DOMParser();
       const xmlDoc = parser.parseFromString(xmlString, "text/xml");
-      
+
       // Check for parsing errors
       const parserError = xmlDoc.getElementsByTagName("parsererror");
       if (parserError.length > 0) {
@@ -218,20 +263,23 @@ export default function DQEmailDetails() {
 
       // Format XML recursively
       const formatNode = (node, indentLevel = 0) => {
-        const indent = '  '.repeat(indentLevel);
-        
-        if (node.nodeType === 3) { // Text node
+        const indent = "  ".repeat(indentLevel);
+
+        if (node.nodeType === 3) {
+          // Text node
           const text = node.textContent.trim();
-          return text ? text : '';
+          return text ? text : "";
         }
-        
-        if (node.nodeType === 1) { // Element node
+
+        if (node.nodeType === 1) {
+          // Element node
           const tagName = node.tagName;
           const children = Array.from(node.childNodes);
-          
+
           // Check if this is a simple text element (only contains text, no child elements)
-          const hasOnlyText = children.length === 1 && children[0].nodeType === 3;
-          
+          const hasOnlyText =
+            children.length === 1 && children[0].nodeType === 3;
+
           if (hasOnlyText) {
             const textContent = children[0].textContent.trim();
             return `${indent}<${tagName}>${textContent}</${tagName}>`;
@@ -239,56 +287,63 @@ export default function DQEmailDetails() {
             return `${indent}<${tagName}></${tagName}>`;
           } else {
             let result = `${indent}<${tagName}>\n`;
-            children.forEach(child => {
+            children.forEach((child) => {
               const childFormatted = formatNode(child, indentLevel + 1);
               if (childFormatted) {
-                result += childFormatted + '\n';
+                result += childFormatted + "\n";
               }
             });
             result += `${indent}</${tagName}>`;
             return result;
           }
         }
-        
-        return '';
+
+        return "";
       };
 
       return formatNode(xmlDoc.documentElement);
-      
     } catch (error) {
-      console.error('Error formatting XML:', error);
-      
+      console.error("Error formatting XML:", error);
+
       // Fallback: simple formatting
       return xmlString
-        .replace(/></g, '>\n<')
-        .split('\n')
+        .replace(/></g, ">\n<")
+        .split("\n")
         .map((line, index) => {
           const trimmed = line.trim();
-          if (!trimmed) return '';
-          
+          if (!trimmed) return "";
+
           let indentLevel = 0;
-          const matches = xmlString.substring(0, xmlString.indexOf(trimmed)).match(/<[^\/]/g);
-          const closes = xmlString.substring(0, xmlString.indexOf(trimmed)).match(/<\//g);
-          indentLevel = Math.max(0, (matches?.length || 0) - (closes?.length || 0));
-          
-          if (trimmed.startsWith('</')) indentLevel = Math.max(0, indentLevel - 1);
-          
-          return '  '.repeat(indentLevel) + trimmed;
+          const matches = xmlString
+            .substring(0, xmlString.indexOf(trimmed))
+            .match(/<[^\/]/g);
+          const closes = xmlString
+            .substring(0, xmlString.indexOf(trimmed))
+            .match(/<\//g);
+          indentLevel = Math.max(
+            0,
+            (matches?.length || 0) - (closes?.length || 0)
+          );
+
+          if (trimmed.startsWith("</"))
+            indentLevel = Math.max(0, indentLevel - 1);
+
+          return "  ".repeat(indentLevel) + trimmed;
         })
-        .filter(line => line.trim())
-        .join('\n');
+        .filter((line) => line.trim())
+        .join("\n");
     }
   };
 
   // Format HTML with proper indentation - similar to XML formatter but handles HTML specifics
   const formatHtml = (htmlString) => {
-    if (!htmlString) return '';
+    if (!htmlString) return "";
 
     try {
       // Parse using DOMParser for HTML
       const parser = new DOMParser();
       const htmlDoc = parser.parseFromString(htmlString, "text/html");
-      
+
       // Check for parsing errors
       const parserError = htmlDoc.getElementsByTagName("parsererror");
       if (parserError.length > 0) {
@@ -298,74 +353,81 @@ export default function DQEmailDetails() {
 
       // Format HTML recursively
       const formatNode = (node, indentLevel = 0) => {
-        const indent = '  '.repeat(indentLevel);
-        
-        if (node.nodeType === 3) { // Text node
+        const indent = "  ".repeat(indentLevel);
+
+        if (node.nodeType === 3) {
+          // Text node
           const text = node.textContent.trim();
-          return text ? text : '';
+          return text ? text : "";
         }
-        
-        if (node.nodeType === 1) { // Element node
+
+        if (node.nodeType === 1) {
+          // Element node
           const tagName = node.tagName.toLowerCase();
           const children = Array.from(node.childNodes);
           const attributes = Array.from(node.attributes);
-          
+
           // Build attribute string
-          const attrString = attributes.length > 0 
-            ? ' ' + attributes.map(attr => `${attr.name}="${attr.value}"`).join(' ')
-            : '';
-          
+          const attrString =
+            attributes.length > 0
+              ? " " +
+                attributes
+                  .map((attr) => `${attr.name}="${attr.value}"`)
+                  .join(" ")
+              : "";
+
           // Self-closing tags
-          if (['br', 'hr', 'img', 'input', 'meta', 'link'].includes(tagName)) {
+          if (["br", "hr", "img", "input", "meta", "link"].includes(tagName)) {
             return `${indent}<${tagName}${attrString}>`;
           }
-          
+
           // Check if this is a simple text element (only contains text, no child elements)
-          const hasOnlyText = children.length === 1 && children[0].nodeType === 3;
-          
+          const hasOnlyText =
+            children.length === 1 && children[0].nodeType === 3;
+
           if (hasOnlyText) {
             const textContent = children[0].textContent.trim();
-            if (textContent.length < 50) { // Keep short content on same line
+            if (textContent.length < 50) {
+              // Keep short content on same line
               return `${indent}<${tagName}${attrString}>${textContent}</${tagName}>`;
             }
           }
-          
+
           if (children.length === 0) {
             return `${indent}<${tagName}${attrString}></${tagName}>`;
           } else {
             let result = `${indent}<${tagName}${attrString}>\n`;
-            children.forEach(child => {
+            children.forEach((child) => {
               const childFormatted = formatNode(child, indentLevel + 1);
               if (childFormatted) {
-                result += childFormatted + '\n';
+                result += childFormatted + "\n";
               }
             });
             result += `${indent}</${tagName}>`;
             return result;
           }
         }
-        
-        return '';
+
+        return "";
       };
 
       // Format the entire document
-      let result = '';
-      
+      let result = "";
+
       // Add doctype if present
       if (htmlDoc.doctype) {
-        result += '<!DOCTYPE html>\n';
+        result += "<!DOCTYPE html>\n";
       }
-      
+
       // Format html element and its contents
       const htmlElement = htmlDoc.documentElement;
       if (htmlElement) {
         result += formatNode(htmlElement);
       }
-      
+
       return result;
-      
     } catch (error) {
-      console.error('Error formatting HTML:', error);
+      console.error("Error formatting HTML:", error);
       return formatHtmlManually(htmlString);
     }
   };
@@ -373,39 +435,40 @@ export default function DQEmailDetails() {
   // Manual HTML formatting fallback
   const formatHtmlManually = (htmlString) => {
     try {
-      let formatted = '';
+      let formatted = "";
       let indent = 0;
       const indentSize = 2;
-      
+
       // Remove extra whitespace and split by tags
-      const cleaned = htmlString.replace(/>\s*</g, '><').replace(/\n\s*/g, ' ');
-      const parts = cleaned.split('<');
-      
+      const cleaned = htmlString.replace(/>\s*</g, "><").replace(/\n\s*/g, " ");
+      const parts = cleaned.split("<");
+
       for (let i = 0; i < parts.length; i++) {
-        if (i === 0 && parts[i] === '') continue;
-        
+        if (i === 0 && parts[i] === "") continue;
+
         let part = parts[i];
         if (!part) continue;
-        
-        const isClosingTag = part.startsWith('/');
-        const isSelfClosing = part.endsWith('/>') || 
+
+        const isClosingTag = part.startsWith("/");
+        const isSelfClosing =
+          part.endsWith("/>") ||
           /^(br|hr|img|input|meta|link)\s*\/?>/.test(part);
-        
+
         if (isClosingTag) {
           indent = Math.max(0, indent - 1);
         }
-        
-        formatted += ' '.repeat(indent * indentSize);
-        formatted += '<' + part;
-        
+
+        formatted += " ".repeat(indent * indentSize);
+        formatted += "<" + part;
+
         // Add newline
-        formatted += '\n';
-        
-        if (!isClosingTag && !isSelfClosing && part.indexOf('>') !== -1) {
+        formatted += "\n";
+
+        if (!isClosingTag && !isSelfClosing && part.indexOf(">") !== -1) {
           indent++;
         }
       }
-      
+
       return formatted.trim();
     } catch (error) {
       return htmlString; // Return original if all formatting fails
@@ -438,7 +501,7 @@ export default function DQEmailDetails() {
 
     while ((match = regex.exec(templateText)) !== null) {
       const directive = match[1].trim();
-      const parts = directive.split(' in ');
+      const parts = directive.split(" in ");
       if (parts.length === 2) {
         const variable = parts[0].trim();
         const collection = parts[1].trim();
@@ -447,7 +510,7 @@ export default function DQEmailDetails() {
           variable,
           collection,
           position: match.index,
-          originalCase: match[0] // Store the original case found in template
+          originalCase: match[0], // Store the original case found in template
         });
       }
     }
@@ -491,7 +554,9 @@ export default function DQEmailDetails() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <ExclamationTriangleIcon className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Error Loading DQ Email</h2>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">
+            Error Loading DQ Email
+          </h2>
           <p className="text-gray-600 mb-4">{error}</p>
           <Link
             href="/dqemails"
@@ -520,7 +585,10 @@ export default function DQEmailDetails() {
     <>
       <Head>
         <title>{dqEmail.emailName} - DQ Email Details</title>
-        <meta name="description" content={`Details for DQ email: ${dqEmail.emailName}`} />
+        <meta
+          name="description"
+          content={`Details for DQ email: ${dqEmail.emailName}`}
+        />
       </Head>
 
       <div className="min-h-screen bg-gray-50 p-8">
@@ -548,11 +616,13 @@ export default function DQEmailDetails() {
                   Development
                 </span>
               )}
-              <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                dqEmail.isActive
-                  ? "bg-green-100 text-green-800"
-                  : "bg-red-100 text-red-800"
-              }`}>
+              <span
+                className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                  dqEmail.isActive
+                    ? "bg-green-100 text-green-800"
+                    : "bg-red-100 text-red-800"
+                }`}
+              >
                 {dqEmail.isActive ? (
                   <>
                     <CheckCircleIcon className="h-4 w-4 mr-1" />
@@ -575,19 +645,25 @@ export default function DQEmailDetails() {
                 <div className="flex items-center">
                   <CheckCircleIcon className="h-8 w-8 text-blue-600" />
                   <div className="ml-4">
-                    <div className="text-lg font-semibold text-gray-900">Status</div>
-                    <div className="text-sm text-gray-500">Email activation</div>
+                    <div className="text-lg font-semibold text-gray-900">
+                      Status
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      Email activation
+                    </div>
                   </div>
                 </div>
                 <button
-                  onClick={() => handleToggleStatus('isActive', dqEmail.isActive)}
+                  onClick={() =>
+                    handleToggleStatus("isActive", dqEmail.isActive)
+                  }
                   className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                     dqEmail.isActive
                       ? "bg-green-100 text-green-800 hover:bg-green-200"
                       : "bg-red-100 text-red-800 hover:bg-red-200"
                   }`}
                 >
-                  {dqEmail.isActive ? 'Deactivate' : 'Activate'}
+                  {dqEmail.isActive ? "Deactivate" : "Activate"}
                 </button>
               </div>
             </div>
@@ -609,19 +685,21 @@ export default function DQEmailDetails() {
                 <div className="flex items-center">
                   <BeakerIcon className="h-8 w-8 text-orange-600" />
                   <div className="ml-4">
-                    <div className="text-lg font-semibold text-gray-900">Development</div>
+                    <div className="text-lg font-semibold text-gray-900">
+                      Development
+                    </div>
                     <div className="text-sm text-gray-500">Testing mode</div>
                   </div>
                 </div>
                 <button
-                  onClick={() => handleToggleStatus('inDev', dqEmail.inDev)}
+                  onClick={() => handleToggleStatus("inDev", dqEmail.inDev)}
                   className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                     dqEmail.inDev
                       ? "bg-orange-100 text-orange-800 hover:bg-orange-200"
                       : "bg-gray-100 text-gray-800 hover:bg-gray-200"
                   }`}
                 >
-                  {dqEmail.inDev ? 'Move to Production' : 'Move to Development'}
+                  {dqEmail.inDev ? "Move to Production" : "Move to Development"}
                 </button>
               </div>
             </div>
@@ -635,14 +713,14 @@ export default function DQEmailDetails() {
                 <EnvelopeIcon className="h-6 w-6 mr-2" />
                 Email Configuration
               </h2>
-              
+
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Email Subject
                   </label>
                   <div className="p-3 bg-gray-50 rounded-md text-sm text-gray-900">
-                    {dqEmail.emailSubject || 'No subject configured'}
+                    {dqEmail.emailSubject || "No subject configured"}
                   </div>
                 </div>
 
@@ -660,7 +738,7 @@ export default function DQEmailDetails() {
                     HTML Template
                   </label>
                   <div className="p-3 bg-gray-50 rounded-md text-sm text-gray-900">
-                    {dqEmail.htmlTemplateName || 'No template specified'}
+                    {dqEmail.htmlTemplateName || "No template specified"}
                   </div>
                 </div>
 
@@ -669,7 +747,7 @@ export default function DQEmailDetails() {
                     Development Email Address
                   </label>
                   <div className="p-3 bg-gray-50 rounded-md text-sm text-gray-900">
-                    {dqEmail.devEmailAddress || 'Not configured'}
+                    {dqEmail.devEmailAddress || "Not configured"}
                   </div>
                 </div>
 
@@ -699,7 +777,7 @@ export default function DQEmailDetails() {
                 <CodeBracketIcon className="h-6 w-6 mr-2" />
                 Technical Configuration
               </h2>
-              
+
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -707,14 +785,14 @@ export default function DQEmailDetails() {
                   </label>
                   <div className="p-3 bg-gray-50 rounded-md text-sm text-gray-900">
                     {dqEmail.dqCheckFunction ? (
-                      <Link 
+                      <Link
                         href={`/dqchecks/${dqEmail.dqCheckId}`}
                         className="text-blue-600 hover:text-blue-800 underline"
                       >
                         {dqEmail.dqCheckFunction}
                       </Link>
                     ) : (
-                      'No DQ check linked'
+                      "No DQ check linked"
                     )}
                   </div>
                 </div>
@@ -724,7 +802,7 @@ export default function DQEmailDetails() {
                     Stored Procedure
                   </label>
                   <div className="p-3 bg-gray-50 rounded-md text-sm text-gray-900 font-mono">
-                    {dqEmail.runStoredProcedure || 'Not specified'}
+                    {dqEmail.runStoredProcedure || "Not specified"}
                   </div>
                 </div>
 
@@ -733,7 +811,7 @@ export default function DQEmailDetails() {
                     Map View
                   </label>
                   <div className="p-3 bg-gray-50 rounded-md text-sm text-gray-900">
-                    {dqEmail.mapView || 'Not configured'}
+                    {dqEmail.mapView || "Not configured"}
                   </div>
                 </div>
 
@@ -742,7 +820,7 @@ export default function DQEmailDetails() {
                     Hierarchy
                   </label>
                   <div className="p-3 bg-gray-50 rounded-md text-sm text-gray-900">
-                    {dqEmail.hierarchy || 'Not configured'}
+                    {dqEmail.hierarchy || "Not configured"}
                   </div>
                 </div>
 
@@ -753,10 +831,9 @@ export default function DQEmailDetails() {
                     </label>
                     <div className="p-3 bg-gray-50 rounded-md text-sm text-gray-900 font-mono max-h-40 overflow-y-auto">
                       <pre className="whitespace-pre-wrap">
-                        {typeof dqEmail.mapRules === 'string' 
-                          ? dqEmail.mapRules 
-                          : JSON.stringify(dqEmail.mapRules, null, 2)
-                        }
+                        {typeof dqEmail.mapRules === "string"
+                          ? dqEmail.mapRules
+                          : JSON.stringify(dqEmail.mapRules, null, 2)}
                       </pre>
                     </div>
                   </div>
@@ -768,398 +845,538 @@ export default function DQEmailDetails() {
           {/* Template and Map View Resources - Only show if using DQ check approach */}
           {(dqEmail.htmlTemplateName || dqEmail.mapView) && (
             <>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
-              {/* HTML Template */}
-              {dqEmail.htmlTemplateName && (
-                <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-6">
-                  <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
-                    <DocumentTextIcon className="h-6 w-6 mr-2" />
-                    HTML Template: {dqEmail.htmlTemplateName}
-                  </h2>
-                  
-                  {resourcesLoading ? (
-                    <div className="flex items-center justify-center p-8">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                      <span className="ml-3 text-gray-600">Loading template...</span>
-                    </div>
-                  ) : resources.templateError ? (
-                    <div className="p-4 bg-red-50 border border-red-200 rounded-md">
-                      <div className="flex">
-                        <ExclamationTriangleIcon className="h-5 w-5 text-red-400" />
-                        <div className="ml-3">
-                          <p className="text-sm text-red-800">{resources.templateError}</p>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
+                {/* HTML Template */}
+                {dqEmail.htmlTemplateName && (
+                  <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-6">
+                    <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
+                      <DocumentTextIcon className="h-6 w-6 mr-2" />
+                      HTML Template: {dqEmail.htmlTemplateName}
+                    </h2>
+
+                    {resourcesLoading ? (
+                      <div className="flex items-center justify-center p-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                        <span className="ml-3 text-gray-600">
+                          Loading template...
+                        </span>
+                      </div>
+                    ) : resources.templateError ? (
+                      <div className="p-4 bg-red-50 border border-red-200 rounded-md">
+                        <div className="flex">
+                          <ExclamationTriangleIcon className="h-5 w-5 text-red-400" />
+                          <div className="ml-3">
+                            <p className="text-sm text-red-800">
+                              {resources.templateError}
+                            </p>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ) : resources.template ? (
-                    <div className="space-y-4">
-                      {resources.template.description && (
+                    ) : resources.template ? (
+                      <div className="space-y-4">
+                        {resources.template.description && (
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Description
+                            </label>
+                            <div className="p-3 bg-gray-50 rounded-md text-sm text-gray-900">
+                              {resources.template.description}
+                            </div>
+                          </div>
+                        )}
+
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Description
+                            Template Content (^For directives highlighted)
                           </label>
-                          <div className="p-3 bg-gray-50 rounded-md text-sm text-gray-900">
-                            {resources.template.description}
-                          </div>
-                        </div>
-                      )}
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Template Content (^For directives highlighted)
-                        </label>
-                        <div className="p-3 bg-gray-50 rounded-md text-sm text-gray-900 max-h-96 overflow-y-auto">
-                          <div 
-                            className="whitespace-pre-wrap font-mono text-xs"
-                            dangerouslySetInnerHTML={{
-                              __html: (() => {
-                                const forDirectives = extractForDirectives(resources.template.text);
-                                return highlightForDirectives(resources.template.text, forDirectives)
-                                  .replace(/</g, '&lt;')
-                                  .replace(/>/g, '&gt;')
-                                  .replace(/&lt;span class="([^"]*)"&gt;([^&]*)&lt;\/span&gt;/g, '<span class="$1">$2</span>');
-                              })()
-                            }}
-                          />
-                        </div>
-                      </div>
-                      
-                      <div className="grid grid-cols-2 gap-4 text-xs text-gray-500">
-                        <div>
-                          <span className="font-medium">Created:</span> {
-                            resources.template.createdDate 
-                              ? new Date(resources.template.createdDate).toLocaleDateString()
-                              : 'Unknown'
-                          }
-                        </div>
-                        <div>
-                          <span className="font-medium">Modified:</span> {
-                            resources.template.modifiedDate 
-                              ? new Date(resources.template.modifiedDate).toLocaleDateString()
-                              : 'Unknown'
-                          }
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="p-4 bg-gray-50 border border-gray-200 rounded-md">
-                      <p className="text-sm text-gray-600">Template not found</p>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Map View Columns */}
-              {dqEmail.mapView && (
-                <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-6">
-                  <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
-                    <TableCellsIcon className="h-6 w-6 mr-2" />
-                    Map View Columns: {dqEmail.mapView}
-                  </h2>
-                  
-                  {resourcesLoading ? (
-                    <div className="flex items-center justify-center p-8">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                      <span className="ml-3 text-gray-600">Loading columns...</span>
-                    </div>
-                  ) : resources.mapViewError ? (
-                    <div className="p-4 bg-red-50 border border-red-200 rounded-md">
-                      <div className="flex">
-                        <ExclamationTriangleIcon className="h-5 w-5 text-red-400" />
-                        <div className="ml-3">
-                          <p className="text-sm text-red-800">{resources.mapViewError}</p>
-                        </div>
-                      </div>
-                    </div>
-                  ) : resources.mapViewColumns && resources.mapViewColumns.length > 0 ? (
-                    <div className="space-y-4">
-                      <div className="text-sm text-gray-600">
-                        Found {resources.mapViewColumns.length} columns in this view:
-                      </div>
-                      
-                      <div className="max-h-96 overflow-y-auto">
-                        <div className="grid gap-2">
-                          {resources.mapViewColumns.map((column, index) => (
-                            <div 
-                              key={index}
-                              className="flex items-center justify-between p-3 bg-gray-50 rounded-md border border-gray-200"
-                            >
-                              <div className="flex-1">
-                                <div className="font-medium text-gray-900">
-                                  {column.columnName}
-                                </div>
-                                <div className="text-sm text-gray-500">
-                                  {column.dataType}
-                                  {column.maxLength && ` (${column.maxLength})`}
-                                  {!column.isNullable && ' • NOT NULL'}
-                                  {column.columnDefault && ` • Default: ${column.columnDefault}`}
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="p-4 bg-gray-50 border border-gray-200 rounded-md">
-                      <p className="text-sm text-gray-600">No columns found for this view</p>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* MapRules Mapping Visualization - Only show if we have both template and mapRules */}
-            {dqEmail.mapRules && resources.template && (
-              <div className="mt-8">
-                <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-6">
-                  <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
-                    <LinkIcon className="h-6 w-6 mr-2" />
-                    Template Variable Mappings
-                  </h2>
-                  
-                  {(() => {
-                    const mappings = parseMapRules(dqEmail.mapRules);
-                    const templateVars = extractTemplateVariables(resources.template.text);
-                    
-                    if (mappings.length === 0) {
-                      return (
-                        <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md">
-                          <p className="text-sm text-yellow-800">
-                            Could not parse MapRules XML. The XML might be malformed or use an unexpected structure.
-                          </p>
-                        </div>
-                      );
-                    }
-
-                    return (
-                      <div className="space-y-6">
-
-
-                        {/* Summary */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                          <div className="bg-blue-50 p-4 rounded-lg">
-                            <div className="text-2xl font-bold text-blue-700">{templateVars.length}</div>
-                            <div className="text-sm text-blue-600">Template Variables</div>
-                          </div>
-                          <div className="bg-green-50 p-4 rounded-lg">
-                            <div className="text-2xl font-bold text-green-700">{mappings.length}</div>
-                            <div className="text-sm text-green-600">Mapped Fields</div>
-                          </div>
-                          <div className="bg-purple-50 p-4 rounded-lg">
-                            <div className="text-2xl font-bold text-purple-700">
-                              {new Set(mappings.map(m => m.collection)).size}
-                            </div>
-                            <div className="text-sm text-purple-600">Collections</div>
-                          </div>
-                        </div>
-
-                        {/* Color Key for ^For Directives */}
-                        {(() => {
-                          const forDirectives = resources.template ? extractForDirectives(resources.template.text) : [];
-                          if (forDirectives.length === 0) return null;
-
-
-                          return (
-                            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
-                              <h4 className="text-sm font-semibold text-gray-700 mb-3">Template Loop Color Key:</h4>
-                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                                {forDirectives.map((directive, index) => {
-                                  const color = loopColors[index % loopColors.length];
-                                  return (
-                                    <div key={index} className={`p-3 rounded-lg border ${color.light} ${color.border}`}>
-                                      <div className={`inline-block px-2 py-1 rounded text-xs font-mono ${color.bg} ${color.text} ${color.border} border mb-2`}>
-                                        ^For="{directive.full}"
-                                      </div>
-                                      <div className="text-xs text-gray-600">
-                                        <div><strong>Variable:</strong> {directive.variable}</div>
-                                        <div><strong>Collection:</strong> {directive.collection}</div>
-                                      </div>
-                                    </div>
+                          <div className="p-3 bg-gray-50 rounded-md text-sm text-gray-900 max-h-96 overflow-y-auto">
+                            <div
+                              className="whitespace-pre-wrap font-mono text-xs"
+                              dangerouslySetInnerHTML={{
+                                __html: (() => {
+                                  const forDirectives = extractForDirectives(
+                                    resources.template.text
                                   );
-                                })}
+                                  return highlightForDirectives(
+                                    resources.template.text,
+                                    forDirectives
+                                  )
+                                    .replace(/</g, "&lt;")
+                                    .replace(/>/g, "&gt;")
+                                    .replace(
+                                      /&lt;span class="([^"]*)"&gt;([^&]*)&lt;\/span&gt;/g,
+                                      '<span class="$1">$2</span>'
+                                    );
+                                })(),
+                              }}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4 text-xs text-gray-500">
+                          <div>
+                            <span className="font-medium">Created:</span>{" "}
+                            {resources.template.createdDate
+                              ? new Date(
+                                  resources.template.createdDate
+                                ).toLocaleDateString()
+                              : "Unknown"}
+                          </div>
+                          <div>
+                            <span className="font-medium">Modified:</span>{" "}
+                            {resources.template.modifiedDate
+                              ? new Date(
+                                  resources.template.modifiedDate
+                                ).toLocaleDateString()
+                              : "Unknown"}
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-4 bg-gray-50 border border-gray-200 rounded-md">
+                        <p className="text-sm text-gray-600">
+                          Template not found
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Map View Columns */}
+                {dqEmail.mapView && (
+                  <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-6">
+                    <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
+                      <TableCellsIcon className="h-6 w-6 mr-2" />
+                      Map View Columns: {dqEmail.mapView}
+                    </h2>
+
+                    {resourcesLoading ? (
+                      <div className="flex items-center justify-center p-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                        <span className="ml-3 text-gray-600">
+                          Loading columns...
+                        </span>
+                      </div>
+                    ) : resources.mapViewError ? (
+                      <div className="p-4 bg-red-50 border border-red-200 rounded-md">
+                        <div className="flex">
+                          <ExclamationTriangleIcon className="h-5 w-5 text-red-400" />
+                          <div className="ml-3">
+                            <p className="text-sm text-red-800">
+                              {resources.mapViewError}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ) : resources.mapViewColumns &&
+                      resources.mapViewColumns.length > 0 ? (
+                      <div className="space-y-4">
+                        <div className="text-sm text-gray-600">
+                          Found {resources.mapViewColumns.length} columns in
+                          this view:
+                        </div>
+
+                        <div className="max-h-96 overflow-y-auto">
+                          <div className="grid gap-2">
+                            {resources.mapViewColumns.map((column, index) => (
+                              <div
+                                key={index}
+                                className="flex items-center justify-between p-3 bg-gray-50 rounded-md border border-gray-200"
+                              >
+                                <div className="flex-1">
+                                  <div className="font-medium text-gray-900">
+                                    {column.columnName}
+                                  </div>
+                                  <div className="text-sm text-gray-500">
+                                    {column.dataType}
+                                    {column.maxLength &&
+                                      ` (${column.maxLength})`}
+                                    {!column.isNullable && " • NOT NULL"}
+                                    {column.columnDefault &&
+                                      ` • Default: ${column.columnDefault}`}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-4 bg-gray-50 border border-gray-200 rounded-md">
+                        <p className="text-sm text-gray-600">
+                          No columns found for this view
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Insert Edit Email Settings button here */}
+              <div className="mt-8 flex justify-end space-x-4">
+                <button
+                  onClick={() => {
+                    // TODO: Implement general edit functionality
+                    alert("General edit functionality coming soon!");
+                  }}
+                  disabled={showEditor}
+                  className={`px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors ${
+                    showEditor ? "opacity-50 cursor-not-allowed" : ""
+                  }`}
+                >
+                  Edit Email Settings
+                </button>
+              </div>
+
+              {/* MapRules Mapping Visualization - Only show if we have both template and mapRules */}
+              {dqEmail.mapRules && resources.template && (
+                <div className="mt-8">
+                  <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-6">
+                    <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
+                      <LinkIcon className="h-6 w-6 mr-2" />
+                      Template Variable Mappings
+                    </h2>
+
+                    {(() => {
+                      const mappings = parseMapRules(dqEmail.mapRules);
+                      const templateVars = extractTemplateVariables(
+                        resources.template.text
+                      );
+
+                      if (mappings.length === 0) {
+                        return (
+                          <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md">
+                            <p className="text-sm text-yellow-800">
+                              Could not parse MapRules XML. The XML might be
+                              malformed or use an unexpected structure.
+                            </p>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="space-y-6">
+                          {/* Summary */}
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                            <div className="bg-blue-50 p-4 rounded-lg">
+                              <div className="text-2xl font-bold text-blue-700">
+                                {templateVars.length}
+                              </div>
+                              <div className="text-sm text-blue-600">
+                                Template Variables
                               </div>
                             </div>
-                          );
-                        })()}
+                            <div className="bg-green-50 p-4 rounded-lg">
+                              <div className="text-2xl font-bold text-green-700">
+                                {mappings.length}
+                              </div>
 
-                        {/* Hierarchical Structure */}
-                        {(() => {
-                          // Get ^For directives to determine color mapping
-                          const forDirectives = resources.template ? extractForDirectives(resources.template.text) : [];
-                          // Use the same color array for highlighting in HTML Template
-                          const colors = loopColors;
+                              <div className="text-sm text-green-600">
+                                Mapped Fields
+                              </div>
+                            </div>
+                            <div className="bg-purple-50 p-4 rounded-lg">
+                              <div className="text-2xl font-bold text-purple-700">
+                                {
+                                  new Set(mappings.map((m) => m.collection))
+                                    .size
+                                }
+                              </div>
+                              <div className="text-sm text-purple-600">
+                                Collections
+                              </div>
+                            </div>
+                          </div>
 
-                          // Parse the hierarchy from dqEmail.hierarchy (e.g., "serviceLeads>supportWorkers>properties")
-                          const hierarchyOrder = dqEmail.hierarchy ? dqEmail.hierarchy.split('>') : [];
-                          const collections = Array.from(new Set(mappings.map(m => m.collection)));
-                          
-                          // If no hierarchy defined, just show collections in order found
-                          const orderedCollections = hierarchyOrder.length > 0 
-                            ? hierarchyOrder.filter(h => collections.includes(h))
-                            : collections;
+                          {/* Color Key for ^For Directives */}
+                          {(() => {
+                            const forDirectives = resources.template
+                              ? extractForDirectives(resources.template.text)
+                              : [];
+                            if (forDirectives.length === 0) return null;
 
-                          // Create mapping between collections and ^For directives
-                          const getCollectionColor = (collectionName, level) => {
-                            // Try to find matching ^For directive
-                            const matchingDirective = forDirectives.find(d => d.collection === collectionName);
-                            if (matchingDirective) {
-                              const directiveIndex = forDirectives.indexOf(matchingDirective);
-                              return colors[directiveIndex % colors.length];
-                            }
-                            // Fallback to level-based coloring
-                            return colors[level % colors.length];
-                          };
-
-                          const renderCollection = (collectionName, level = 0) => {
-                            const collectionMappings = mappings.filter(m => m.collection === collectionName);
-                            const indent = level * 2; // 2rem per level
-                            const color = getCollectionColor(collectionName, level);
-                            
                             return (
-                              <div 
-                                key={collectionName} 
-                                className={`border ${color.border} rounded-lg p-4 ${color.light}`}
-                                style={{ marginLeft: `${indent}rem` }}
-                              >
-                                <div className="flex items-center justify-between mb-4">
-                                  <h3 className={`text-lg font-semibold ${color.text} flex items-center`}>
-                                    {level > 0 && (
-                                      <div className="flex items-center mr-2">
-                                        {Array.from({ length: level }).map((_, i) => (
-                                          <div key={i} className="w-4 h-px bg-gray-400 mr-1"></div>
-                                        ))}
-                                        <ArrowRightIcon className="h-4 w-4 text-gray-400 mr-2" />
-                                      </div>
-                                    )}
-                                    <span className={`px-3 py-1 rounded-full text-sm ${color.bg} ${color.text} border ${color.border}`}>
-                                      Collection: {collectionName}
-                                    </span>
-                                  </h3>
-                                  <span className="text-sm text-gray-600 bg-white px-2 py-1 rounded">
-                                    Level {level + 1} • {collectionMappings.length} fields
-                                  </span>
-                                </div>
-                                
-                                <div className="space-y-3">
-                                  {collectionMappings.map((mapping, index) => (
-                                    <div key={index} className="bg-white border border-gray-200 rounded-md p-3 shadow-sm">
-                                      <div className="flex items-center justify-between">
-                                        <div className="flex items-center space-x-4 flex-1">
-                                          {/* Template Variable */}
-                                          <div className="flex-1">
-                                            <div className="text-xs font-medium text-gray-500 mb-1">Template Variable</div>
-                                            <div className="inline-flex items-center px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-mono">
-                                              {`{{${mapping.templateVariable}}}`}
-                                            </div>
+                              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
+                                <h4 className="text-sm font-semibold text-gray-700 mb-3">
+                                  Template Loop Color Key:
+                                </h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                  {forDirectives.map((directive, index) => {
+                                    const color =
+                                      loopColors[index % loopColors.length];
+                                    return (
+                                      <div
+                                        key={index}
+                                        className={`p-3 rounded-lg border ${color.light} ${color.border}`}
+                                      >
+                                        <div
+                                          className={`inline-block px-2 py-1 rounded text-xs font-mono ${color.bg} ${color.text} ${color.border} border mb-2`}
+                                        >
+                                          ^For="{directive.full}"
+                                        </div>
+                                        <div className="text-xs text-gray-600">
+                                          <div>
+                                            <strong>Variable:</strong>{" "}
+                                            {directive.variable}
                                           </div>
-                                          
-                                          {/* Arrow */}
-                                          <div className="flex-shrink-0">
-                                            <ArrowRightIcon className="h-4 w-4 text-gray-400" />
-                                          </div>
-                                          
-                                          {/* Map Column */}
-                                          <div className="flex-1">
-                                            <div className="text-xs font-medium text-gray-500 mb-1">Database Column</div>
-                                            <div className="inline-flex items-center px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-mono">
-                                              {mapping.mapColumn}
-                                            </div>
+                                          <div>
+                                            <strong>Collection:</strong>{" "}
+                                            {directive.collection}
                                           </div>
                                         </div>
-                                        
-                                        {/* Verification Badge */}
-                                        <div className="flex-shrink-0 ml-4">
-                                          {templateVars.includes(mapping.templateVariable) ? (
-                                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                              <CheckCircleIcon className="h-3 w-3 mr-1" />
-                                              Used
-                                            </span>
-                                          ) : (
-                                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                                              <ExclamationTriangleIcon className="h-3 w-3 mr-1" />
-                                              Unused
-                                            </span>
-                                          )}
-                                        </div>
                                       </div>
-                                      
-                                      {/* Field Details */}
-                                      <div className="mt-2 text-xs text-gray-500 border-t pt-2">
-                                        <span className="font-medium">Field:</span> {mapping.fieldName} • 
-                                        <span className="font-medium ml-2">Instance:</span> {mapping.instance}
-                                      </div>
-                                    </div>
-                                  ))}
+                                    );
+                                  })}
                                 </div>
                               </div>
                             );
-                          };
+                          })()}
 
-                          return (
-                            <div className="space-y-4">
-                              {/* Hierarchy Visualization */}
-                              {hierarchyOrder.length > 0 && (
-                                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
-                                  <h4 className="text-sm font-semibold text-gray-700 mb-3">Data Hierarchy Structure:</h4>
-                                  <div className="flex items-center space-x-2 text-sm">
-                                    {hierarchyOrder.map((collection, index) => (
-                                      <div key={collection} className="flex items-center">
-                                        <span className="px-3 py-1 bg-white border border-gray-300 rounded-full font-mono text-xs">
-                                          {collection}
-                                        </span>
-                                        {index < hierarchyOrder.length - 1 && (
-                                          <ArrowRightIcon className="h-4 w-4 text-gray-400 mx-2" />
-                                        )}
-                                      </div>
+                          {/* Hierarchical Structure */}
+                          {(() => {
+                            // Get ^For directives to determine color mapping
+                            const forDirectives = resources.template
+                              ? extractForDirectives(resources.template.text)
+                              : [];
+                            // Use the same color array for highlighting in HTML Template
+                            const colors = loopColors;
+
+                            // Parse the hierarchy from dqEmail.hierarchy (e.g., "serviceLeads>supportWorkers>properties")
+                            const hierarchyOrder = dqEmail.hierarchy
+                              ? dqEmail.hierarchy.split(">")
+                              : [];
+                            const collections = Array.from(
+                              new Set(mappings.map((m) => m.collection))
+                            );
+
+                            // If no hierarchy defined, just show collections in order found
+                            const orderedCollections =
+                              hierarchyOrder.length > 0
+                                ? hierarchyOrder.filter((h) =>
+                                    collections.includes(h)
+                                  )
+                                : collections;
+
+                            // Create mapping between collections and ^For directives
+                            const getCollectionColor = (
+                              collectionName,
+                              level
+                            ) => {
+                              // Try to find matching ^For directive
+                              const matchingDirective = forDirectives.find(
+                                (d) => d.collection === collectionName
+                              );
+                              if (matchingDirective) {
+                                const directiveIndex =
+                                  forDirectives.indexOf(matchingDirective);
+                                return colors[directiveIndex % colors.length];
+                              }
+                              // Fallback to level-based coloring
+                              return colors[level % colors.length];
+                            };
+
+                            const renderCollection = (
+                              collectionName,
+                              level = 0
+                            ) => {
+                              const collectionMappings = mappings.filter(
+                                (m) => m.collection === collectionName
+                              );
+                              const indent = level * 2; // 2rem per level
+                              const color = getCollectionColor(
+                                collectionName,
+                                level
+                              );
+
+                              return (
+                                <div
+                                  key={collectionName}
+                                  className={`border ${color.border} rounded-lg p-4 ${color.light}`}
+                                  style={{ marginLeft: `${indent}rem` }}
+                                >
+                                  <div className="flex items-center justify-between mb-4">
+                                    <h3
+                                      className={`text-lg font-semibold ${color.text} flex items-center`}
+                                    >
+                                      {level > 0 && (
+                                        <div className="flex items-center mr-2">
+                                          {Array.from({ length: level }).map(
+                                            (_, i) => (
+                                              <div
+                                                key={i}
+                                                className="w-4 h-px bg-gray-400 mr-1"
+                                              ></div>
+                                            )
+                                          )}
+                                          <ArrowRightIcon className="h-4 w-4 text-gray-400 mr-2" />
+                                        </div>
+                                      )}
+                                      <span
+                                        className={`px-3 py-1 rounded-full text-sm ${color.bg} ${color.text} border ${color.border}`}
+                                      >
+                                        Collection: {collectionName}
+                                      </span>
+                                    </h3>
+                                    <span className="text-sm text-gray-600 bg-white px-2 py-1 rounded">
+                                      Level {level + 1} •{" "}
+                                      {collectionMappings.length} fields
+                                    </span>
+                                  </div>
+
+                                  <div className="space-y-3">
+                                    {collectionMappings.map(
+                                      (mapping, index) => (
+                                        <div
+                                          key={index}
+                                          className="bg-white border border-gray-200 rounded-md p-3 shadow-sm"
+                                        >
+                                          <div className="flex items-center justify-between">
+                                            <div className="flex items-center space-x-4 flex-1">
+                                              {/* Template Variable */}
+                                              <div className="flex-1">
+                                                <div className="text-xs font-medium text-gray-500 mb-1">
+                                                  Template Variable
+                                                </div>
+                                                <div className="inline-flex items-center px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-mono">
+                                                  {`{{${mapping.templateVariable}}}`}
+                                                </div>
+                                              </div>
+
+                                              {/* Arrow */}
+                                              <div className="flex-shrink-0">
+                                                <ArrowRightIcon className="h-4 w-4 text-gray-400" />
+                                              </div>
+
+                                              {/* Map Column */}
+                                              <div className="flex-1">
+                                                <div className="text-xs font-medium text-gray-500 mb-1">
+                                                  Database Column
+                                                </div>
+                                                <div className="inline-flex items-center px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-mono">
+                                                  {mapping.mapColumn}
+                                                </div>
+                                              </div>
+                                            </div>
+
+                                            {/* Verification Badge */}
+                                            <div className="flex-shrink-0 ml-4">
+                                              {templateVars.includes(
+                                                mapping.templateVariable
+                                              ) ? (
+                                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                  <CheckCircleIcon className="h-3 w-3 mr-1" />
+                                                  Used
+                                                </span>
+                                              ) : (
+                                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                                  <ExclamationTriangleIcon className="h-3 w-3 mr-1" />
+                                                  Unused
+                                                </span>
+                                              )}
+                                            </div>
+                                          </div>
+
+                                          {/* Field Details */}
+                                          <div className="mt-2 text-xs text-gray-500 border-t pt-2">
+                                            <span className="font-medium">
+                                              Field:
+                                            </span>{" "}
+                                            {mapping.fieldName} •
+                                            <span className="font-medium ml-2">
+                                              Instance:
+                                            </span>{" "}
+                                            {mapping.instance}
+                                          </div>
+                                        </div>
+                                      )
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            };
+
+                            return (
+                              <div className="space-y-4">
+                                {/* Hierarchy Visualization */}
+                                {hierarchyOrder.length > 0 && (
+                                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
+                                    <h4 className="text-sm font-semibold text-gray-700 mb-3">
+                                      Data Hierarchy Structure:
+                                    </h4>
+                                    <div className="flex items-center space-x-2 text-sm">
+                                      {hierarchyOrder.map(
+                                        (collection, index) => (
+                                          <div
+                                            key={collection}
+                                            className="flex items-center"
+                                          >
+                                            <span className="px-3 py-1 bg-white border border-gray-300 rounded-full font-mono text-xs">
+                                              {collection}
+                                            </span>
+                                            {index <
+                                              hierarchyOrder.length - 1 && (
+                                              <ArrowRightIcon className="h-4 w-4 text-gray-400 mx-2" />
+                                            )}
+                                          </div>
+                                        )
+                                      )}
+                                    </div>
+                                    <div className="text-xs text-gray-500 mt-2">
+                                      Each level can contain multiple instances
+                                      of the next level
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Nested Collections */}
+                                {orderedCollections.map(
+                                  (collectionName, index) =>
+                                    renderCollection(collectionName, index)
+                                )}
+                              </div>
+                            );
+                          })()}
+
+                          {/* Unmapped Template Variables */}
+                          {(() => {
+                            const mappedVars = new Set(
+                              mappings.map((m) => m.templateVariable)
+                            );
+                            const unmappedVars = templateVars.filter(
+                              (v) => !mappedVars.has(v)
+                            );
+
+                            if (unmappedVars.length > 0) {
+                              return (
+                                <div className="border border-orange-200 rounded-lg p-4 bg-orange-50">
+                                  <h3 className="text-lg font-semibold text-orange-800 mb-3">
+                                    Unmapped Template Variables
+                                  </h3>
+                                  <div className="text-sm text-orange-700 mb-3">
+                                    These variables appear in the template but
+                                    are not defined in the MapRules:
+                                  </div>
+                                  <div className="flex flex-wrap gap-2">
+                                    {unmappedVars.map((variable, index) => (
+                                      <span
+                                        key={index}
+                                        className="inline-flex items-center px-3 py-1 bg-orange-200 text-orange-800 rounded-full text-sm font-mono"
+                                      >
+                                        {`{{${variable}}}`}
+                                      </span>
                                     ))}
                                   </div>
-                                  <div className="text-xs text-gray-500 mt-2">
-                                    Each level can contain multiple instances of the next level
-                                  </div>
                                 </div>
-                              )}
-
-                              {/* Nested Collections */}
-                              {orderedCollections.map((collectionName, index) => 
-                                renderCollection(collectionName, index)
-                              )}
-                            </div>
-                          );
-                        })()}
-
-                        {/* Unmapped Template Variables */}
-                        {(() => {
-                          const mappedVars = new Set(mappings.map(m => m.templateVariable));
-                          const unmappedVars = templateVars.filter(v => !mappedVars.has(v));
-                          
-                          if (unmappedVars.length > 0) {
-                            return (
-                              <div className="border border-orange-200 rounded-lg p-4 bg-orange-50">
-                                <h3 className="text-lg font-semibold text-orange-800 mb-3">
-                                  Unmapped Template Variables
-                                </h3>
-                                <div className="text-sm text-orange-700 mb-3">
-                                  These variables appear in the template but are not defined in the MapRules:
-                                </div>
-                                <div className="flex flex-wrap gap-2">
-                                  {unmappedVars.map((variable, index) => (
-                                    <span key={index} className="inline-flex items-center px-3 py-1 bg-orange-200 text-orange-800 rounded-full text-sm font-mono">
-                                      {`{{${variable}}}`}
-                                    </span>
-                                  ))}
-                                </div>
-                              </div>
-                            );
-                          }
-                          return null;
-                        })()}
-                      </div>
-                    );
-                  })()}
+                              );
+                            }
+                            return null;
+                          })()}
+                        </div>
+                      );
+                    })()}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
             </>
           )}
 
@@ -1179,17 +1396,9 @@ export default function DQEmailDetails() {
             </div>
           )}
 
-          {/* Action Buttons */}
-          <div className="mt-8 flex justify-end space-x-4">
-            <Link
-              href="/dqemails"
-              className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
-            >
-              Back to List
-            </Link>
-            
-            {/* Show Edit Template button only for template-based emails */}
-            {dqEmail.htmlTemplateName && resources.template && !showEditor && (
+          {/* Show Edit Template button only for template-based emails */}
+          {dqEmail.htmlTemplateName && resources.template && !showEditor && (
+            <div className="mt-8 flex justify-end space-x-4">
               <button
                 onClick={() => setShowEditor(true)}
                 className="px-6 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors flex items-center"
@@ -1197,20 +1406,8 @@ export default function DQEmailDetails() {
                 <PencilSquareIcon className="h-4 w-4 mr-2" />
                 Edit Template & Mapping
               </button>
-            )}
-            
-
-            
-            <button
-              onClick={() => {
-                // TODO: Implement general edit functionality
-                alert('General edit functionality coming soon!');
-              }}
-              className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-            >
-              Edit Email Settings
-            </button>
-          </div>
+            </div>
+          )}
         </div>
       </div>
     </>
