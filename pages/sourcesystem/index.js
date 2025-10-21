@@ -1,5 +1,7 @@
 import Head from "next/head";
+import Link from "next/link";
 import { useEffect, useState, useMemo, useCallback } from "react";
+import { useRouter } from "next/router";
 import {
   listSourceSystems,
   updateSourceSystems,
@@ -13,9 +15,11 @@ import {
   PlusCircleIcon,
   XMarkIcon,
   MagnifyingGlassIcon,
+  ArrowLeftIcon,
 } from "@heroicons/react/24/solid";
 
 export default function Sourcesystem() {
+  const router = useRouter();
   const [systems, setSystems] = useState([]);
   const [selectedSystemID, setSelectedSystemID] = useState(-1);
   const [sourceSystemModalIsOpen, setSourceSystemModalIsOpen] = useState(false);
@@ -234,9 +238,18 @@ export default function Sourcesystem() {
       </Head>
       <div className="min-h-screen bg-gray-50">
         <div className="container mx-auto px-4 py-8">
-          <h1 className="text-3xl font-bold text-gray-800 text-center mb-8">
-            Source Systems
-          </h1>
+          <div className="flex items-center gap-4 mb-8">
+            <Link
+              href="/"
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
+            >
+              <ArrowLeftIcon className="h-5 w-5" />
+              Back to Main Menu
+            </Link>
+            <h1 className="text-3xl font-bold text-gray-800">
+              Source Systems
+            </h1>
+          </div>
 
           {/* Source Systems Table */}
           <div className="bg-white rounded-lg shadow-lg border border-gray-200 mb-8">
@@ -476,17 +489,15 @@ export default function Sourcesystem() {
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Domain Name
                           </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Created
-                          </th>
-                          <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Actions
-                          </th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
                         {selectedSystem.domains.map((domain) => (
-                          <tr key={domain.id} className="hover:bg-gray-50">
+                          <tr 
+                            key={domain.id} 
+                            onClick={() => router.push(`/domain/${domain.id}?from=sourcesystem`)}
+                            className="hover:bg-gray-50 cursor-pointer transition-colors"
+                          >
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex items-center">
                                 <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center mr-3">
@@ -494,51 +505,9 @@ export default function Sourcesystem() {
                                     {domain.domainName.charAt(0).toUpperCase()}
                                   </span>
                                 </div>
-                                <div>
-                                  <div className="text-sm font-medium text-gray-900">
-                                    {domain.domainName}
-                                  </div>
-                                  <div className="text-sm text-gray-500">
-                                    ID: {domain.id}
-                                  </div>
+                                <div className="text-sm font-medium text-gray-900">
+                                  {domain.domainName}
                                 </div>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-500">
-                                {domain.createdDate
-                                  ? new Date(
-                                      domain.createdDate
-                                    ).toLocaleDateString()
-                                  : "N/A"}
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                              <div className="flex gap-2 justify-end">
-                                <button
-                                  className="text-blue-600 hover:text-blue-900"
-                                  title="Edit Domain"
-                                >
-                                  <PencilSquareIcon className="h-4 w-4" />
-                                </button>
-                                <button
-                                  className="text-red-600 hover:text-red-900"
-                                  title="Delete Domain"
-                                >
-                                  <svg
-                                    className="h-4 w-4"
-                                    fill="none"
-                                    viewBox="0 0 24 24"
-                                    stroke="currentColor"
-                                  >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                                    />
-                                  </svg>
-                                </button>
                               </div>
                             </td>
                           </tr>

@@ -25,10 +25,70 @@ export default async function handler(req, res) {
   }
 }
 
-// GET - List domains (optionally filtered by source system)
+// GET - List domains (optionally filtered by source system) or get single domain with details
 async function handleGet(req, res) {
-  const { sourceSystemId } = req.query;
+  const { sourceSystemId, id } = req.query;
   
+  // If ID is provided, get single domain with all details including DQ checks
+  if (id) {
+    const domainQuery = `
+      SELECT 
+        d.ID as id,
+        d.SourceSystem_ID as sourceSystemId,
+        d.DomainName as domainName,
+        ss.SystemName as sourceSystemName
+      FROM pow.Domain d
+      INNER JOIN pow.SourceSystem ss ON d.SourceSystem_ID = ss.ID
+      WHERE d.ID = @id
+    `;
+    
+    const domainResult = await executeQuery(domainQuery, { id: parseInt(id) });
+    
+    if (domainResult.recordset.length === 0) {
+      return apiResponse.notFound(res, "Domain not found");
+    }
+    
+    const domain = domainResult.recordset[0];
+    
+    // Get DQ checks for this domain with their schedules
+    const dqChecksQuery = `
+      SELECT 
+        dqc.ID as id,
+        dqc.FunctionName as functionName,
+        dqc.Explain as explain,
+        dqc.isActive
+      FROM pow.DQCheck dqc
+      WHERE dqc.Domain_ID = @id
+      ORDER BY dqc.FunctionName
+    `;
+    
+    const dqChecksResult = await executeQuery(dqChecksQuery, { id: parseInt(id) });
+    
+    // For each DQ check, get its schedules
+    for (const check of dqChecksResult.recordset) {
+      const schedulesQuery = `
+        SELECT 
+          sms.ID as id,
+          sms.Title as title,
+          sms.IncludeBankHols as includeBankHols,
+          sms.Days as days,
+          sms.Times as times
+        FROM pow.ShowMyShedule sms
+        INNER JOIN pow.DQCheck_Schedule dqcs ON sms.ID = dqcs.Schedule_ID
+        WHERE dqcs.DQCheck_ID = @dqCheckId
+        ORDER BY sms.Title
+      `;
+      
+      const schedulesResult = await executeQuery(schedulesQuery, { dqCheckId: check.id });
+      check.showMySchedules = schedulesResult.recordset;
+    }
+    
+    domain.dqchecks = dqChecksResult.recordset;
+    
+    return apiResponse.success(res, domain, "Domain retrieved successfully");
+  }
+  
+  // Otherwise, list all domains (optionally filtered by source system)
   let query = `
     SELECT 
       d.ID as id,
@@ -157,6 +217,22 @@ async function handleDelete(req, res) {
   
   if (!id) {
     return apiResponse.badRequest(res, "ID is required");
+  }
+  
+  // Check if domain has any DQ checks
+  const dqCheckQuery = `
+    SELECT COUNT(*) as count
+    FROM pow.DQCheck
+    WHERE Domain_ID = @id
+  `;
+  
+  const dqCheckResult = await executeQuery(dqCheckQuery, { id: parseInt(id) });
+  
+  if (dqCheckResult.recordset[0].count > 0) {
+    return apiResponse.badRequest(
+      res, 
+      `Cannot delete domain. It has ${dqCheckResult.recordset[0].count} associated DQ check(s). Please remove all DQ checks before deleting the domain.`
+    );
   }
   
   const query = `

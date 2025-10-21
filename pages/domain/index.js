@@ -1,12 +1,17 @@
 import Head from "next/head";
 import Link from "next/link";
 import { useEffect, useState, useMemo, useCallback } from "react";
+import { useRouter } from "next/router";
 import { listDomains } from "../../lib/client/domains";
 
-import { PencilSquareIcon, PlusCircleIcon } from "@heroicons/react/24/solid";
+import { PlusCircleIcon, ArrowLeftIcon } from "@heroicons/react/24/solid";
 
 export default function Domain() {
   const [domains, setDomains] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sortField, setSortField] = useState("domainName"); // 'domainName' or 'sourceSystemName'
+  const [sortDirection, setSortDirection] = useState("asc"); // 'asc' or 'desc'
+  const router = useRouter();
 
   const fetchdata = useCallback(async () => {
     const data = await listDomains();
@@ -17,6 +22,49 @@ export default function Domain() {
   const initialLoad = useEffect(() => {
     fetchdata();
   }, [fetchdata]);
+
+  // Handle sorting
+  const handleSort = (field) => {
+    if (sortField === field) {
+      // Toggle direction if clicking the same field
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      // Set new field and default to ascending
+      setSortField(field);
+      setSortDirection("asc");
+    }
+  };
+
+  // Filter and sort domains
+  const filteredDomains = useMemo(() => {
+    let result = domains;
+
+    // Apply search filter
+    if (searchTerm.trim()) {
+      const searchLower = searchTerm.toLowerCase();
+      result = result.filter((domain) => {
+        const domainNameMatch = domain.domainName?.toLowerCase().includes(searchLower);
+        const sourceSystemMatch = domain.sourceSystemName?.toLowerCase().includes(searchLower);
+        return domainNameMatch || sourceSystemMatch;
+      });
+    }
+
+    // Apply sorting
+    result = [...result].sort((a, b) => {
+      let aValue = a[sortField] || "";
+      let bValue = b[sortField] || "";
+
+      // Convert to lowercase for case-insensitive sorting
+      if (typeof aValue === "string") aValue = aValue.toLowerCase();
+      if (typeof bValue === "string") bValue = bValue.toLowerCase();
+
+      if (aValue < bValue) return sortDirection === "asc" ? -1 : 1;
+      if (aValue > bValue) return sortDirection === "asc" ? 1 : -1;
+      return 0;
+    });
+
+    return result;
+  }, [domains, searchTerm, sortField, sortDirection]);
 
   return (
     <>
@@ -31,25 +79,88 @@ export default function Domain() {
 
           {/* Header Section */}
           <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-6 mb-8">
-            <div className="flex justify-between items-center">
-              <div>
-                <h2 className="text-xl font-semibold text-gray-800">
-                  All Domains
-                </h2>
-                <p className="text-sm text-gray-600">
-                  Manage data domains across all source systems
-                </p>
+            <div className="flex justify-between items-center mb-4">
+              <div className="flex items-center gap-4">
+                <Link
+                  href="/"
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  <ArrowLeftIcon className="h-5 w-5" />
+                  Back to Main Menu
+                </Link>
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-800">
+                    All Domains
+                  </h2>
+                  <p className="text-sm text-gray-600">
+                    Manage data domains across all source systems
+                  </p>
+                </div>
               </div>
-              <button className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded transition-colors duration-200 flex items-center gap-2">
+              <Link
+                href="/domain/new"
+                className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded transition-colors duration-200 flex items-center gap-2"
+              >
                 <PlusCircleIcon className="h-5 w-5" />
                 Add Domain
-              </button>
+              </Link>
+            </div>
+
+            {/* Search Filter */}
+            <div className="mt-4">
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Search by domain name or source system..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full px-4 py-2 pl-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+                <svg
+                  className="absolute left-3 top-2.5 h-5 w-5 text-gray-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                  />
+                </svg>
+                {searchTerm && (
+                  <button
+                    onClick={() => setSearchTerm("")}
+                    className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
+                  >
+                    <svg
+                      className="h-5 w-5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                )}
+              </div>
+              {searchTerm && (
+                <p className="mt-2 text-sm text-gray-600">
+                  Found {filteredDomains.length} of {domains.length} domains
+                </p>
+              )}
             </div>
           </div>
 
           {/* Content Area */}
           <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-6">
-            {!domains || domains.length === 0 ? (
+            {!filteredDomains || filteredDomains.length === 0 ? (
               /* Empty State */
               <div className="text-center py-12">
                 <div className="text-gray-400 mb-4">
@@ -68,16 +179,22 @@ export default function Domain() {
                   </svg>
                 </div>
                 <h4 className="text-lg font-medium text-gray-600 mb-2">
-                  No Domains Found
+                  {searchTerm ? "No Domains Found" : "No Domains Found"}
                 </h4>
                 <p className="text-gray-500 mb-6">
-                  No domains have been created yet. Create your first domain to
-                  get started.
+                  {searchTerm
+                    ? "No domains match your search criteria. Try adjusting your search term."
+                    : "No domains have been created yet. Create your first domain to get started."}
                 </p>
-                <button className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded transition-colors duration-200 flex items-center gap-2 mx-auto">
-                  <PlusCircleIcon className="h-5 w-5" />
-                  Create First Domain
-                </button>
+                {!searchTerm && (
+                  <Link
+                    href="/domain/new"
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded transition-colors duration-200 flex items-center gap-2 mx-auto"
+                  >
+                    <PlusCircleIcon className="h-5 w-5" />
+                    Create First Domain
+                  </Link>
+                )}
               </div>
             ) : (
               /* Domains Table */
@@ -86,22 +203,78 @@ export default function Domain() {
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Domain
+                        <button
+                          onClick={() => handleSort("domainName")}
+                          className="flex items-center gap-2 hover:text-gray-700 transition-colors"
+                        >
+                          Domain
+                          <span className="flex flex-col">
+                            <svg
+                              className={`h-3 w-3 ${
+                                sortField === "domainName" && sortDirection === "asc"
+                                  ? "text-blue-600"
+                                  : "text-gray-400"
+                              }`}
+                              fill="currentColor"
+                              viewBox="0 0 20 20"
+                            >
+                              <path d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 7.414V15a1 1 0 11-2 0V7.414L6.707 9.707a1 1 0 01-1.414 0z" />
+                            </svg>
+                            <svg
+                              className={`h-3 w-3 -mt-1 ${
+                                sortField === "domainName" && sortDirection === "desc"
+                                  ? "text-blue-600"
+                                  : "text-gray-400"
+                              }`}
+                              fill="currentColor"
+                              viewBox="0 0 20 20"
+                            >
+                              <path d="M14.707 10.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L9 12.586V5a1 1 0 012 0v7.586l2.293-2.293a1 1 0 011.414 0z" />
+                            </svg>
+                          </span>
+                        </button>
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Source System
-                      </th>
-                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Status
-                      </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Actions
+                        <button
+                          onClick={() => handleSort("sourceSystemName")}
+                          className="flex items-center gap-2 hover:text-gray-700 transition-colors"
+                        >
+                          Source System
+                          <span className="flex flex-col">
+                            <svg
+                              className={`h-3 w-3 ${
+                                sortField === "sourceSystemName" && sortDirection === "asc"
+                                  ? "text-blue-600"
+                                  : "text-gray-400"
+                              }`}
+                              fill="currentColor"
+                              viewBox="0 0 20 20"
+                            >
+                              <path d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 7.414V15a1 1 0 11-2 0V7.414L6.707 9.707a1 1 0 01-1.414 0z" />
+                            </svg>
+                            <svg
+                              className={`h-3 w-3 -mt-1 ${
+                                sortField === "sourceSystemName" && sortDirection === "desc"
+                                  ? "text-blue-600"
+                                  : "text-gray-400"
+                              }`}
+                              fill="currentColor"
+                              viewBox="0 0 20 20"
+                            >
+                              <path d="M14.707 10.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L9 12.586V5a1 1 0 012 0v7.586l2.293-2.293a1 1 0 011.414 0z" />
+                            </svg>
+                          </span>
+                        </button>
                       </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {domains.map((domain) => (
-                      <tr key={domain.id} className="hover:bg-gray-50">
+                    {filteredDomains.map((domain) => (
+                      <tr
+                        key={domain.id}
+                        className="hover:bg-gray-50 cursor-pointer"
+                        onClick={() => router.push(`/domain/${domain.id}`)}
+                      >
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
                             <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center mr-3">
@@ -109,80 +282,14 @@ export default function Domain() {
                                 {domain.domainName.charAt(0).toUpperCase()}
                               </span>
                             </div>
-                            <div>
-                              <div className="text-sm font-medium text-gray-900">
-                                {domain.domainName}
-                              </div>
-                              <div className="text-sm text-gray-500">
-                                ID: {domain.id}
-                              </div>
+                            <div className="text-sm font-medium text-gray-900">
+                              {domain.domainName}
                             </div>
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm font-medium text-gray-900">
-                            {domain.sourceSystem_Name || "Unknown System"}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            System ID: {domain.sourceSystem_ID || "N/A"}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-center">
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                            Active
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <div className="flex gap-2 justify-end">
-                            <Link
-                              href={`/domain/${domain.id}`}
-                              className="text-blue-600 hover:text-blue-900"
-                              title="View Details"
-                            >
-                              <svg
-                                className="h-4 w-4"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                                />
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                                />
-                              </svg>
-                            </Link>
-                            <button
-                              className="text-blue-600 hover:text-blue-900"
-                              title="Edit Domain"
-                            >
-                              <PencilSquareIcon className="h-4 w-4" />
-                            </button>
-                            <button
-                              className="text-red-600 hover:text-red-900"
-                              title="Delete Domain"
-                            >
-                              <svg
-                                className="h-4 w-4"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                                />
-                              </svg>
-                            </button>
+                            {domain.sourceSystemName || "Unknown System"}
                           </div>
                         </td>
                       </tr>

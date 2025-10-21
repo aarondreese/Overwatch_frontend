@@ -8,6 +8,7 @@ import {
   PencilSquareIcon,
   PlusCircleIcon,
   XCircleIcon,
+  ArrowLeftIcon,
 } from "@heroicons/react/24/solid";
 
 export default function Schedules() {
@@ -109,9 +110,10 @@ export default function Schedules() {
             <div className="flex items-center space-x-4">
               <Link
                 href="/"
-                className="text-gray-600 hover:text-gray-900 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
               >
-                ← Back to Home
+                <ArrowLeftIcon className="h-5 w-5" />
+                Back to Main Menu
               </Link>
               <h1 className="text-3xl font-bold text-gray-900">
                 Schedule Management
