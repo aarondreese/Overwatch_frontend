@@ -18,8 +18,8 @@ export default function ToggleSwitch({ checked, onChange, label, disabled = fals
           onClick={handleToggle}
           className={`block w-12 h-6 rounded-full cursor-pointer transition-colors duration-200 ease-in-out ${
             checked
-              ? 'bg-blue-600'
-              : 'bg-gray-300'
+              ? 'bg-green-600'
+              : 'bg-red-600'
           } ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-opacity-80'}`}
         >
           <div

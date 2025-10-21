@@ -665,18 +665,24 @@ export default function TemplateXMLEditor({
         const variable = parts[0].trim();
         const collection = parts[1].trim();
         
-        // Clean up collection name - remove any prefixes (e.g., "serviceLead.supportWorkers" -> "supportWorkers")
-        const cleanCollection = collection.includes('.') ? collection.split('.').pop() : collection;
+        // Extract the actual collection name from the full path
+        // For "admin.DueEPC", the collection name is "DueEPC"
+        // For "admins", the collection name is "admins"
+        const collectionName = collection.includes('.') ? 
+          collection.split('.').pop() : collection;
         
         matches.push({
           variable,
-          collection: cleanCollection,
-          originalCollection: collection, // Keep original for reference
+          collection: collectionName,
+          fullPath: collection, // Keep the full path for reference
           position: match.index,
           full: directive
         });
       }
     }
+    
+    // Sort by position to maintain correct hierarchy order
+    matches.sort((a, b) => a.position - b.position);
     
     // Extract all template variables
     const templateVars = new Set();
@@ -684,7 +690,7 @@ export default function TemplateXMLEditor({
       templateVars.add(match[1].trim());
     }
     
-    // Build hierarchy structure
+    // Build hierarchy structure - each ^for directive creates a separate collection level
     const hierarchy = matches.map((m, index) => {
       // Find variables that belong to this collection instance
       const instanceVariables = Array.from(templateVars).filter(v => 
@@ -698,8 +704,8 @@ export default function TemplateXMLEditor({
       return {
         level: index,
         variable: m.variable,
-        collection: m.collection, // Now using clean collection name
-        originalCollection: m.originalCollection, // Keep original for reference
+        collection: m.collection,
+        fullPath: m.fullPath,
         variables: instanceVariables,
         groupBy: null // Will be set by user
       };

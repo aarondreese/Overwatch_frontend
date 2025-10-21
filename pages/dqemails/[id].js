@@ -719,13 +719,15 @@ export default function DQEmailDetails() {
   const extractForDirectives = (templateText) => {
     if (!templateText) return [];
 
-    const regex = /\^for="([^"]+)"/gi; // Added 'i' flag for case-insensitive
+    // Match both ^for and ^For with optional spaces and various quote styles
+    const regex = /\^for\s*=\s*["']([^"']+)["']/gi;
     const directives = [];
     let match;
 
     while ((match = regex.exec(templateText)) !== null) {
       const directive = match[1].trim();
-      const parts = directive.split(" in ");
+      // Case-insensitive split on " in " or " In " etc.
+      const parts = directive.split(/ in /i);
       if (parts.length === 2) {
         const variable = parts[0].trim();
         const collection = parts[1].trim();
@@ -751,12 +753,15 @@ export default function DQEmailDetails() {
 
     let highlightedText = templateText;
 
-    // Replace directives in order of appearance (not reverse)
+    // Replace directives in order of appearance
     forDirectives.forEach((directive, index) => {
       const color = colors[index % colors.length];
       const originalPattern = directive.originalCase;
       const replacement = `<span class="inline-block px-2 py-1 rounded ${color.bg} ${color.text} ${color.border} border font-semibold">${originalPattern}</span>`;
-      highlightedText = highlightedText.replace(originalPattern, replacement);
+      
+      // Use global replace to handle multiple occurrences
+      const regex = new RegExp(originalPattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+      highlightedText = highlightedText.replace(regex, replacement);
     });
 
     return highlightedText;
@@ -894,7 +899,13 @@ export default function DQEmailDetails() {
 
             <div 
               className="bg-white rounded-lg shadow-lg border border-gray-200 p-6 cursor-pointer hover:bg-gray-50 transition-colors"
-              onClick={() => setShowSchedulesModal(true)}
+              onClick={() => {
+                if (id) {
+                  setShowSchedulesModal(true);
+                } else {
+                  console.error('Cannot open schedules modal: DQ Email ID is not available');
+                }
+              }}
             >
               <div className="flex items-center">
                 <ClockIcon className="h-8 w-8 text-purple-600" />
@@ -2046,6 +2057,7 @@ export default function DQEmailDetails() {
         onClose={() => setShowSchedulesModal(false)}
         dqEmailId={id}
         emailName={dqEmail?.emailName}
+        emailIsActive={dqEmail?.isActive}
         onScheduleUpdate={handleScheduleUpdate}
       />
 

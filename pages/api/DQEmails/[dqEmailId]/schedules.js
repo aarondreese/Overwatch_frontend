@@ -16,6 +16,10 @@ export default async function handler(req, res) {
       return await handleGet(req, res);
     } else if (method === "PUT") {
       return await handlePut(req, res);
+    } else if (method === "DELETE") {
+      return await handleDelete(req, res);
+    } else if (method === "POST") {
+      return await handlePost(req, res);
     } else {
       return res.status(405).json({
         success: false,
@@ -35,54 +39,59 @@ export default async function handler(req, res) {
 async function handleGet(req, res) {
   const { dqEmailId } = req.query;
 
-  // Get all schedules associated with this DQ email
-  const query = `
-    SELECT 
-      s.ID as scheduleId,
-      s.ScheduleName as scheduleName,
-      s.Description as description,
-      s.IsEnabled as scheduleEnabled,
-      es.ID as emailScheduleId,
-      es.IsEnabled as emailScheduleEnabled,
-      es.StartDate as startDate,
-      es.EndDate as endDate,
-      -- Get schedule days
-      (SELECT STRING_AGG(sd.DayName, ', ') 
-       FROM pow.Schedule_Day sd 
-       WHERE sd.Schedule_ID = s.ID AND sd.IsEnabled = 1) as scheduleDays,
-      -- Get schedule hours  
-      (SELECT STRING_AGG(CONCAT(sh.StartHour, ':', FORMAT(sh.StartMinute, '00')), ', ')
-       FROM pow.Schedule_Hour sh 
-       WHERE sh.Schedule_ID = s.ID AND sh.IsEnabled = 1) as scheduleHours
-    FROM pow.DQEmail_Schedule es
-    INNER JOIN pow.Schedule s ON es.Schedule_ID = s.ID
-    WHERE es.DQEmail_ID = @dqEmailId
-    ORDER BY s.ScheduleName
-  `;
+  try {
+    // Get all schedules associated with this DQ email using ShowMyShedule view
+    const query = `
+      SELECT 
+        sms.ID as scheduleId,
+        sms.Title as scheduleName,
+        sms.IsEnabled as scheduleEnabled,
+        sms.Days as scheduleDays,
+        sms.Times as scheduleHours,
+        sms.IncludeBankHols as includeBankHols,
+        s.ActiveFrom as activeFrom,
+        s.ActiveTo as activeTo,
+        es.ID as emailScheduleId,
+        es.IsEnabled as emailScheduleEnabled
+      FROM pow.DQEmail_Schedule es
+      INNER JOIN pow.ShowMyShedule sms ON es.Schedule_ID = sms.ID
+      INNER JOIN pow.Schedule s ON es.Schedule_ID = s.ID
+      WHERE es.DQEmail_ID = @dqEmailId
+      ORDER BY sms.Title
+    `;
 
-  const result = await executeQuery(query, { dqEmailId: parseInt(dqEmailId) });
+    const result = await executeQuery(query, { dqEmailId: parseInt(dqEmailId) });
 
-  const schedules = result.recordset.map((schedule) => ({
-    scheduleId: schedule.scheduleId,
-    scheduleName: schedule.scheduleName,
-    description: schedule.description,
-    scheduleEnabled: Boolean(schedule.scheduleEnabled),
-    emailScheduleId: schedule.emailScheduleId,
-    emailScheduleEnabled: Boolean(schedule.emailScheduleEnabled),
-    startDate: schedule.startDate,
-    endDate: schedule.endDate,
-    scheduleDays: schedule.scheduleDays,
-    scheduleHours: schedule.scheduleHours,
-    // Overall enabled status (both schedule and email-schedule must be enabled)
-    isActive: Boolean(schedule.scheduleEnabled && schedule.emailScheduleEnabled),
-  }));
+    const schedules = result.recordset.map((schedule) => ({
+      scheduleId: schedule.scheduleId,
+      scheduleName: schedule.scheduleName,
+      description: null, // Schedule table doesn't have a Description field
+      scheduleEnabled: Boolean(schedule.scheduleEnabled),
+      emailScheduleId: schedule.emailScheduleId,
+      emailScheduleEnabled: Boolean(schedule.emailScheduleEnabled),
+      startDate: schedule.activeFrom,
+      endDate: schedule.activeTo,
+      scheduleDays: schedule.scheduleDays ? schedule.scheduleDays.trim() : null,
+      scheduleHours: schedule.scheduleHours ? schedule.scheduleHours.trim() : null,
+      includeBankHols: Boolean(schedule.includeBankHols),
+      // Overall enabled status (both schedule and email-schedule must be enabled)
+      isActive: Boolean(schedule.scheduleEnabled && schedule.emailScheduleEnabled),
+    }));
 
-  return res.status(200).json({
-    success: true,
-    message: "DQ Email schedules retrieved successfully",
-    data: schedules,
-    count: schedules.length,
-  });
+    return res.status(200).json({
+      success: true,
+      message: "DQ Email schedules retrieved successfully",
+      data: schedules,
+      count: schedules.length,
+    });
+  } catch (error) {
+    console.error("Error in handleGet for schedules:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to retrieve schedules",
+      error: error.message,
+    });
+  }
 }
 
 async function handlePut(req, res) {
@@ -132,6 +141,104 @@ async function handlePut(req, res) {
     return res.status(500).json({
       success: false,
       message: "Failed to update schedule status",
+      error: error.message,
+    });
+  }
+}
+
+async function handleDelete(req, res) {
+  const { dqEmailId } = req.query;
+  const { emailScheduleId } = req.body;
+
+  if (!emailScheduleId) {
+    return res.status(400).json({
+      success: false,
+      message: "Email schedule ID is required",
+    });
+  }
+
+  console.log("DELETE request for DQEmail Schedule:", { dqEmailId, emailScheduleId });
+
+  try {
+    // Delete the DQEmail_Schedule record
+    const deleteQuery = `
+      DELETE FROM pow.DQEmail_Schedule 
+      WHERE ID = @emailScheduleId AND DQEmail_ID = @dqEmailId
+    `;
+
+    const result = await executeQuery(deleteQuery, {
+      emailScheduleId: parseInt(emailScheduleId),
+      dqEmailId: parseInt(dqEmailId),
+    });
+
+    if (result.rowsAffected && result.rowsAffected[0] > 0) {
+      return res.status(200).json({
+        success: true,
+        message: "Schedule deleted successfully",
+        data: {
+          emailScheduleId: parseInt(emailScheduleId),
+        },
+      });
+    } else {
+      return res.status(404).json({
+        success: false,
+        message: "Schedule not found",
+      });
+    }
+  } catch (error) {
+    console.error("Delete schedule error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to delete schedule",
+      error: error.message,
+    });
+  }
+}
+
+async function handlePost(req, res) {
+  const { dqEmailId } = req.query;
+  const { scheduleId } = req.body;
+
+  if (!scheduleId) {
+    return res.status(400).json({
+      success: false,
+      message: "Schedule ID is required",
+    });
+  }
+
+  console.log("POST request to add DQEmail Schedule:", { dqEmailId, scheduleId });
+
+  try {
+    // Insert new DQEmail_Schedule record
+    const insertQuery = `
+      INSERT INTO pow.DQEmail_Schedule (DQEmail_ID, Schedule_ID, IsEnabled)
+      VALUES (@dqEmailId, @scheduleId, 1)
+    `;
+
+    const result = await executeQuery(insertQuery, {
+      dqEmailId: parseInt(dqEmailId),
+      scheduleId: parseInt(scheduleId),
+    });
+
+    if (result.rowsAffected && result.rowsAffected[0] > 0) {
+      return res.status(201).json({
+        success: true,
+        message: "Schedule added successfully",
+        data: {
+          scheduleId: parseInt(scheduleId),
+        },
+      });
+    } else {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to add schedule",
+      });
+    }
+  } catch (error) {
+    console.error("Add schedule error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to add schedule",
       error: error.message,
     });
   }
