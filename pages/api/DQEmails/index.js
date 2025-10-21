@@ -1,25 +1,25 @@
-import { executeQuery } from '@/lib/db';
+import { executeQuery } from "@/lib/db";
 
 export default async function handler(req, res) {
   const { method } = req;
 
   try {
-    if (method === 'GET') {
+    if (method === "GET") {
       return await handleGet(req, res);
-    } else if (method === 'PUT') {
+    } else if (method === "PUT") {
       return await handlePut(req, res);
     } else {
-      return res.status(405).json({ 
-        success: false, 
-        message: 'Method not allowed' 
+      return res.status(405).json({
+        success: false,
+        message: "Method not allowed",
       });
     }
   } catch (error) {
-    console.error('DQEmails API error:', error);
+    console.error("DQEmails API error:", error);
     return res.status(500).json({
       success: false,
-      message: 'Internal server error',
-      error: error.message
+      message: "Internal server error",
+      error: error.message,
     });
   }
 }
@@ -28,7 +28,7 @@ async function handleGet(req, res) {
   const { id } = req.query;
 
   let query, params;
-  
+
   if (id) {
     // Get single DQ email with schedule information
     query = `
@@ -93,15 +93,15 @@ async function handleGet(req, res) {
   }
 
   const result = await executeQuery(query, params);
-  
+
   if (id && result.recordset.length === 0) {
     return res.status(404).json({
       success: false,
-      message: 'DQ Email not found'
+      message: "DQ Email not found",
     });
   }
 
-  const dqEmails = result.recordset.map(email => ({
+  const dqEmails = result.recordset.map((email) => ({
     id: email.id,
     emailName: email.emailName,
     isActive: Boolean(email.isActive),
@@ -120,28 +120,43 @@ async function handleGet(req, res) {
     lastRunDateTime: email.lastRunDateTime,
     activeScheduleCount: email.activeScheduleCount,
     inactiveScheduleCount: email.inactiveScheduleCount,
-    totalScheduleCount: (email.activeScheduleCount || 0) + (email.inactiveScheduleCount || 0)
+    totalScheduleCount:
+      (email.activeScheduleCount || 0) + (email.inactiveScheduleCount || 0),
   }));
 
   return res.status(200).json({
     success: true,
-    message: 'DQ Emails retrieved successfully',
+    message: "DQ Emails retrieved successfully",
     data: id ? dqEmails[0] : dqEmails,
-    count: dqEmails.length
+    count: dqEmails.length,
   });
 }
 
 async function handlePut(req, res) {
   const { id } = req.query;
-  const { isActive, emailName, description, emailSubject, inDev, mapRules, hierarchy } = req.body;
+  const {
+    isActive,
+    emailName,
+    description,
+    emailSubject,
+    inDev,
+    mapRules,
+    hierarchy,
+    htmlTemplateName,
+    mapView,
+    dqCheckId,
+    frequencyInMinutes,
+    devEmailAddress,
+    runStoredProcedure,
+  } = req.body;
 
-  console.log('PUT request for DQEmail ID:', id);
-  console.log('Request body:', req.body);
+  console.log("PUT request for DQEmail ID:", id);
+  console.log("Request body:", req.body);
 
   if (!id) {
-    return res.status(400).json({ 
-      success: false, 
-      message: 'DQ Email ID is required' 
+    return res.status(400).json({
+      success: false,
+      message: "DQ Email ID is required",
     });
   }
 
@@ -149,64 +164,109 @@ async function handlePut(req, res) {
   const updateFields = [];
   const params = { id: parseInt(id) };
 
-  if (typeof isActive === 'boolean') {
-    updateFields.push('isActive = @isActive');
+  if (typeof isActive === "boolean") {
+    updateFields.push("isActive = @isActive");
     params.isActive = isActive ? 1 : 0;
   }
 
-  if (typeof inDev === 'boolean') {
-    updateFields.push('inDev = @inDev');
+  if (typeof inDev === "boolean") {
+    updateFields.push("inDev = @inDev");
     params.inDev = inDev ? 1 : 0;
   }
 
   if (emailName !== undefined) {
     if (!emailName?.trim()) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Email Name cannot be empty' 
+      return res.status(400).json({
+        success: false,
+        message: "Email Name cannot be empty",
       });
     }
-    updateFields.push('EmailName = @emailName');
+    updateFields.push("EmailName = @emailName");
     params.emailName = emailName.trim();
   }
 
   if (description !== undefined) {
     if (!description?.trim()) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Description cannot be empty' 
+      return res.status(400).json({
+        success: false,
+        message: "Description cannot be empty",
       });
     }
-    updateFields.push('Explain = @description');
+    updateFields.push("Explain = @description");
     params.description = description.trim();
   }
 
   if (emailSubject !== undefined) {
-    updateFields.push('EmailSubject = @emailSubject');
+    updateFields.push("EmailSubject = @emailSubject");
     params.emailSubject = emailSubject?.trim() || null;
   }
 
   if (mapRules !== undefined) {
-    updateFields.push('MapRules = @mapRules');
+    updateFields.push("MapRules = @mapRules");
     params.mapRules = mapRules?.trim() || null;
   }
 
   if (hierarchy !== undefined) {
-    updateFields.push('hierarchy = @hierarchy');
+    updateFields.push("hierarchy = @hierarchy");
     params.hierarchy = hierarchy?.trim() || null;
   }
 
+  if (htmlTemplateName !== undefined) {
+    updateFields.push("htmlTemplateName = @htmlTemplateName");
+    params.htmlTemplateName = htmlTemplateName?.trim() || null;
+  }
+
+  if (mapView !== undefined) {
+    updateFields.push("mapView = @mapView");
+    params.mapView = mapView?.trim() || null;
+  }
+
+  if (dqCheckId !== undefined) {
+    if (dqCheckId && !Number.isInteger(dqCheckId)) {
+      return res.status(400).json({
+        success: false,
+        message: "DQ Check ID must be a valid integer",
+      });
+    }
+    updateFields.push("DQCheck_ID = @dqCheckId");
+    params.dqCheckId = dqCheckId || null;
+  }
+
+  if (frequencyInMinutes !== undefined) {
+    if (
+      frequencyInMinutes &&
+      (!Number.isInteger(frequencyInMinutes) || frequencyInMinutes < 0)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Frequency must be a positive integer or zero",
+      });
+    }
+    updateFields.push("FrequencyInMinutes = @frequencyInMinutes");
+    params.frequencyInMinutes = frequencyInMinutes || null;
+  }
+
+  if (devEmailAddress !== undefined) {
+    updateFields.push("DevEmailAddress = @devEmailAddress");
+    params.devEmailAddress = devEmailAddress?.trim() || null;
+  }
+
+  if (runStoredProcedure !== undefined) {
+    updateFields.push("RunStoredProcedure = @runStoredProcedure");
+    params.runStoredProcedure = runStoredProcedure?.trim() || null;
+  }
+
   if (updateFields.length === 0) {
-    return res.status(400).json({ 
-      success: false, 
-      message: 'No valid fields provided for update' 
+    return res.status(400).json({
+      success: false,
+      message: "No valid fields provided for update",
     });
   }
 
   try {
     const updateQuery = `
       UPDATE pow.DQEmail 
-      SET ${updateFields.join(', ')}
+      SET ${updateFields.join(", ")}
       WHERE ID = @id
     `;
 
@@ -215,25 +275,24 @@ async function handlePut(req, res) {
     if (result.rowsAffected && result.rowsAffected[0] > 0) {
       return res.status(200).json({
         success: true,
-        message: 'DQ Email updated successfully',
+        message: "DQ Email updated successfully",
         data: {
           id: parseInt(id),
-          updatedFields: Object.keys(req.body)
-        }
+          updatedFields: Object.keys(req.body),
+        },
       });
     } else {
       return res.status(404).json({
         success: false,
-        message: 'DQ Email not found or no changes made'
+        message: "DQ Email not found or no changes made",
       });
     }
-
   } catch (error) {
-    console.error('Update DQ Email error:', error);
+    console.error("Update DQ Email error:", error);
     return res.status(500).json({
       success: false,
-      message: 'Failed to update DQ Email',
-      error: error.message
+      message: "Failed to update DQ Email",
+      error: error.message,
     });
   }
 }

@@ -41,6 +41,10 @@ import {
   getDQEmailResources,
   updateHtmlTemplate,
 } from "@/lib/client/dqemails";
+import { listHtmlTemplates } from "@/lib/client/htmlTemplates";
+import { listMapViews } from "@/lib/client/mapViews";
+import { listDQChecks } from "@/lib/client/dqchecks";
+import { listStoredProcedures } from "@/lib/client/storedProcedures";
 import TemplateXMLEditor from "@/components/TemplateXMLEditor";
 
 import {
@@ -74,6 +78,15 @@ export default function DQEmailDetails() {
   const [showEditor, setShowEditor] = useState(false);
   const [editorChanges, setEditorChanges] = useState(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editFormData, setEditFormData] = useState({});
+  const [dropdownData, setDropdownData] = useState({
+    htmlTemplates: [],
+    mapViews: [],
+    dqChecks: [],
+    storedProcedures: []
+  });
+  const [dropdownLoading, setDropdownLoading] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -189,6 +202,125 @@ export default function DQEmailDetails() {
     setHasUnsavedChanges(false);
   };
 
+  const loadDropdownData = async () => {
+    setDropdownLoading(true);
+    try {
+      const [htmlTemplates, mapViews, dqChecks, storedProcedures] = await Promise.all([
+        listHtmlTemplates(),
+        listMapViews(),
+        listDQChecks(),
+        listStoredProcedures()
+      ]);
+
+      setDropdownData({
+        htmlTemplates,
+        mapViews,
+        dqChecks,
+        storedProcedures
+      });
+    } catch (err) {
+      console.error('Error loading dropdown data:', err);
+      setError('Failed to load dropdown options: ' + err.message);
+    } finally {
+      setDropdownLoading(false);
+    }
+  };
+
+  const handleStartEditing = async () => {
+    // Initialize form data with current email settings
+    const frequencyInMinutes = dqEmail.frequencyInMinutes || 0;
+    let frequencyNumber = frequencyInMinutes;
+    let frequencyUnit = 1; // Default to minutes
+
+    // Convert to largest possible unit
+    if (frequencyInMinutes % 1440 === 0) {
+      frequencyNumber = frequencyInMinutes / 1440;
+      frequencyUnit = 1440; // Days
+    } else if (frequencyInMinutes % 60 === 0) {
+      frequencyNumber = frequencyInMinutes / 60;
+      frequencyUnit = 60; // Hours
+    }
+
+    // Determine which mode to use: stored procedure or DQ check + map view
+    const useStoredProcedure = Boolean(dqEmail.runStoredProcedure && !dqEmail.dqCheckId && !dqEmail.mapView);
+
+    setEditFormData({
+      htmlTemplateName: dqEmail.htmlTemplateName || '',
+      mapView: dqEmail.mapView || '',
+      dqCheckId: dqEmail.dqCheckId || '',
+      runStoredProcedure: dqEmail.runStoredProcedure || '',
+      useStoredProcedure,
+      frequencyNumber,
+      frequencyUnit,
+      emailSubject: dqEmail.emailSubject || '',
+      description: dqEmail.description || '',
+      devEmailAddress: dqEmail.devEmailAddress || ''
+    });
+
+    setIsEditing(true);
+    await loadDropdownData();
+  };
+
+  const handleCancelEditing = () => {
+    setIsEditing(false);
+    setEditFormData({});
+  };
+
+  const isFormValid = () => {
+    if (editFormData.useStoredProcedure) {
+      // Stored Procedure mode - requires stored procedure
+      return editFormData.runStoredProcedure && editFormData.runStoredProcedure.trim() !== '';
+    } else {
+      // DQ Check + Map View mode - requires all three fields
+      return editFormData.htmlTemplateName && editFormData.htmlTemplateName.trim() !== '' &&
+             editFormData.dqCheckId &&
+             editFormData.mapView && editFormData.mapView.trim() !== '';
+    }
+  };
+
+  const handleSaveEditing = async () => {
+    try {
+      // Calculate total frequency in minutes
+      const frequencyInMinutes = editFormData.frequencyNumber * editFormData.frequencyUnit;
+      
+      const updates = {
+        htmlTemplateName: editFormData.htmlTemplateName || null,
+        frequencyInMinutes,
+        emailSubject: editFormData.emailSubject || null,
+        description: editFormData.description || null,
+        devEmailAddress: editFormData.devEmailAddress || null
+      };
+
+      // Add fields based on the selected mode
+      if (editFormData.useStoredProcedure) {
+        // Stored Procedure mode
+        updates.runStoredProcedure = editFormData.runStoredProcedure || null;
+        updates.mapView = null;
+        updates.dqCheckId = null;
+      } else {
+        // DQ Check + Map View mode
+        updates.mapView = editFormData.mapView || null;
+        updates.dqCheckId = editFormData.dqCheckId ? parseInt(editFormData.dqCheckId) : null;
+        updates.runStoredProcedure = null;
+      }
+
+      await updateDQEmail(id, updates);
+      await fetchDQEmail(); // Refresh the data
+      setIsEditing(false);
+      setEditFormData({});
+    } catch (err) {
+      console.error('Error saving email settings:', err);
+      setError('Failed to save settings: ' + err.message);
+    }
+  };
+
+  const handleFormChange = (field, value) => {
+    setEditFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
   const formatDate = (dateString) => {
     if (!dateString) return "Never";
     return new Date(dateString).toLocaleString();
@@ -196,10 +328,28 @@ export default function DQEmailDetails() {
 
   const formatFrequency = (frequencyInMinutes) => {
     if (!frequencyInMinutes) return "Not configured";
-    if (frequencyInMinutes < 60) return `Every ${frequencyInMinutes} minutes`;
-    if (frequencyInMinutes < 1440)
-      return `Every ${Math.floor(frequencyInMinutes / 60)} hours`;
-    return `Every ${Math.floor(frequencyInMinutes / 1440)} days`;
+    
+    const days = Math.floor(frequencyInMinutes / 1440);
+    const hours = Math.floor((frequencyInMinutes % 1440) / 60);
+    const minutes = frequencyInMinutes % 60;
+    
+    const parts = [];
+    
+    if (days > 0) {
+      parts.push(`${days} day${days !== 1 ? 's' : ''}`);
+    }
+    if (hours > 0) {
+      parts.push(`${hours} hour${hours !== 1 ? 's' : ''}`);
+    }
+    if (minutes > 0) {
+      parts.push(`${minutes} minute${minutes !== 1 ? 's' : ''}`);
+    }
+    
+    if (parts.length === 0) {
+      return "Not configured";
+    }
+    
+    return `Every ${parts.join(', ')}`;
   };
 
   // Parse MapRules XML to extract field mappings
@@ -709,55 +859,144 @@ export default function DQEmailDetails() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Email Configuration */}
             <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
-                <EnvelopeIcon className="h-6 w-6 mr-2" />
-                Email Configuration
-              </h2>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold text-gray-900 flex items-center">
+                  <EnvelopeIcon className="h-6 w-6 mr-2" />
+                  Email Configuration
+                </h2>
+                {!isEditing && (
+                  <button
+                    onClick={handleStartEditing}
+                    disabled={showEditor}
+                    className={`px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm ${
+                      showEditor ? "opacity-50 cursor-not-allowed" : ""
+                    }`}
+                  >
+                    Edit Settings
+                  </button>
+                )}
+                {isEditing && (
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={handleSaveEditing}
+                      disabled={!isFormValid()}
+                      className={`px-4 py-2 rounded-md transition-colors text-sm ${
+                        isFormValid()
+                          ? "bg-green-600 text-white hover:bg-green-700"
+                          : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                      }`}
+                    >
+                      Save
+                    </button>
+                    <button
+                      onClick={handleCancelEditing}
+                      className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors text-sm"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {dropdownLoading && isEditing && (
+                <div className="flex items-center justify-center py-8 mb-4">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                  <span className="ml-3 text-gray-600">Loading options...</span>
+                </div>
+              )}
 
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Email Subject
                   </label>
-                  <div className="p-3 bg-gray-50 rounded-md text-sm text-gray-900">
-                    {dqEmail.emailSubject || "No subject configured"}
-                  </div>
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      value={editFormData.emailSubject || ''}
+                      onChange={(e) => handleFormChange('emailSubject', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Enter email subject"
+                    />
+                  ) : (
+                    <div className="p-3 bg-gray-50 rounded-md text-sm text-gray-900">
+                      {dqEmail.emailSubject || "No subject configured"}
+                    </div>
+                  )}
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Description
                   </label>
-                  <div className="p-3 bg-gray-50 rounded-md text-sm text-gray-900">
-                    {dqEmail.description}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    HTML Template
-                  </label>
-                  <div className="p-3 bg-gray-50 rounded-md text-sm text-gray-900">
-                    {dqEmail.htmlTemplateName || "No template specified"}
-                  </div>
+                  {isEditing ? (
+                    <textarea
+                      value={editFormData.description || ''}
+                      onChange={(e) => handleFormChange('description', e.target.value)}
+                      rows={3}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Enter description"
+                    />
+                  ) : (
+                    <div className="p-3 bg-gray-50 rounded-md text-sm text-gray-900">
+                      {dqEmail.description}
+                    </div>
+                  )}
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Development Email Address
                   </label>
-                  <div className="p-3 bg-gray-50 rounded-md text-sm text-gray-900">
-                    {dqEmail.devEmailAddress || "Not configured"}
-                  </div>
+                  {isEditing ? (
+                    <input
+                      type="email"
+                      value={editFormData.devEmailAddress || ''}
+                      onChange={(e) => handleFormChange('devEmailAddress', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Enter development email address"
+                    />
+                  ) : (
+                    <div className="p-3 bg-gray-50 rounded-md text-sm text-gray-900">
+                      {dqEmail.devEmailAddress || "Not configured"}
+                    </div>
+                  )}
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Frequency
                   </label>
-                  <div className="p-3 bg-gray-50 rounded-md text-sm text-gray-900">
-                    {formatFrequency(dqEmail.frequencyInMinutes)}
-                  </div>
+                  {isEditing ? (
+                    <div className="flex space-x-2">
+                      <input
+                        type="number"
+                        min="0"
+                        value={editFormData.frequencyNumber || 0}
+                        onChange={(e) => handleFormChange('frequencyNumber', parseInt(e.target.value) || 0)}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Enter number"
+                      />
+                      <select
+                        value={editFormData.frequencyUnit || 1}
+                        onChange={(e) => handleFormChange('frequencyUnit', parseInt(e.target.value))}
+                        className="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <option value={1}>Minutes</option>
+                        <option value={60}>Hours</option>
+                        <option value={1440}>Days</option>
+                      </select>
+                    </div>
+                  ) : (
+                    <div className="p-3 bg-gray-50 rounded-md text-sm text-gray-900">
+                      {formatFrequency(dqEmail.frequencyInMinutes)}
+                    </div>
+                  )}
+                  {isEditing && (
+                    <p className="mt-1 text-sm text-gray-500">
+                      Total: Every {(editFormData.frequencyNumber || 0) * (editFormData.frequencyUnit || 1)} minutes
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -779,64 +1018,159 @@ export default function DQEmailDetails() {
               </h2>
 
               <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Linked DQ Check
-                  </label>
-                  <div className="p-3 bg-gray-50 rounded-md text-sm text-gray-900">
-                    {dqEmail.dqCheckFunction ? (
-                      <Link
-                        href={`/dqchecks/${dqEmail.dqCheckId}`}
-                        className="text-blue-600 hover:text-blue-800 underline"
-                      >
-                        {dqEmail.dqCheckFunction}
-                      </Link>
-                    ) : (
-                      "No DQ check linked"
-                    )}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Stored Procedure
-                  </label>
-                  <div className="p-3 bg-gray-50 rounded-md text-sm text-gray-900 font-mono">
-                    {dqEmail.runStoredProcedure || "Not specified"}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Map View
-                  </label>
-                  <div className="p-3 bg-gray-50 rounded-md text-sm text-gray-900">
-                    {dqEmail.mapView || "Not configured"}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Hierarchy
-                  </label>
-                  <div className="p-3 bg-gray-50 rounded-md text-sm text-gray-900">
-                    {dqEmail.hierarchy || "Not configured"}
-                  </div>
-                </div>
-
-                {dqEmail.mapRules && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Map Rules
+                {/* Mode Toggle - only show in edit mode */}
+                {isEditing && (
+                  <div className="border-b border-gray-200 pb-4 mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                      Configuration Type
                     </label>
-                    <div className="p-3 bg-gray-50 rounded-md text-sm text-gray-900 font-mono max-h-40 overflow-y-auto">
-                      <pre className="whitespace-pre-wrap">
-                        {typeof dqEmail.mapRules === "string"
-                          ? dqEmail.mapRules
-                          : JSON.stringify(dqEmail.mapRules, null, 2)}
-                      </pre>
+                    <div className="flex space-x-4">
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="configType"
+                          checked={!editFormData.useStoredProcedure}
+                          onChange={() => handleFormChange('useStoredProcedure', false)}
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                        />
+                        <span className="ml-2 text-sm text-gray-700">DQ Check + Map View</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="configType"
+                          checked={editFormData.useStoredProcedure || false}
+                          onChange={() => handleFormChange('useStoredProcedure', true)}
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                        />
+                        <span className="ml-2 text-sm text-gray-700">Stored Procedure</span>
+                      </label>
                     </div>
                   </div>
+                )}
+
+                {/* Stored Procedure Mode */}
+                {(isEditing && editFormData.useStoredProcedure) || (!isEditing && dqEmail.runStoredProcedure && !dqEmail.dqCheckId && !dqEmail.mapView) ? (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Stored Procedure
+                    </label>
+                    {isEditing ? (
+                      <select
+                        value={editFormData.runStoredProcedure || ''}
+                        onChange={(e) => handleFormChange('runStoredProcedure', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        disabled={dropdownLoading}
+                      >
+                        <option value="">Select a stored procedure</option>
+                        {dropdownData.storedProcedures.map((proc) => (
+                          <option key={proc.fullProcedureName} value={proc.fullProcedureName}>
+                            {proc.fullProcedureName}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <div className="p-3 bg-gray-50 rounded-md text-sm text-gray-900 font-mono">
+                        {dqEmail.runStoredProcedure || "Not specified"}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  /* DQ Check + Map View Mode */
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        HTML Template
+                      </label>
+                      {isEditing ? (
+                        <select
+                          value={editFormData.htmlTemplateName || ''}
+                          onChange={(e) => handleFormChange('htmlTemplateName', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          disabled={dropdownLoading}
+                        >
+                          <option value="">Select a template</option>
+                          {dropdownData.htmlTemplates.map((template) => (
+                            <option key={template.name} value={template.name}>
+                              {template.name}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <div className="p-3 bg-gray-50 rounded-md text-sm text-gray-900">
+                          {dqEmail.htmlTemplateName || "No template specified"}
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Linked DQ Check
+                      </label>
+                      {isEditing ? (
+                        <select
+                          value={editFormData.dqCheckId || ''}
+                          onChange={(e) => handleFormChange('dqCheckId', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          disabled={dropdownLoading}
+                        >
+                          <option value="">Select a DQ check</option>
+                          {dropdownData.dqChecks.map((check) => (
+                            <option key={check.id} value={check.id}>
+                              {check.functionName} ({check.domainName || 'No Domain'})
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <div className="p-3 bg-gray-50 rounded-md text-sm text-gray-900">
+                          {dqEmail.dqCheckFunction ? (
+                            <Link
+                              href={`/dqchecks/${dqEmail.dqCheckId}`}
+                              className="text-blue-600 hover:text-blue-800 underline"
+                            >
+                              {dqEmail.dqCheckFunction}
+                            </Link>
+                          ) : (
+                            "No DQ check linked"
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Map View
+                      </label>
+                      {isEditing ? (
+                        <select
+                          value={editFormData.mapView || ''}
+                          onChange={(e) => handleFormChange('mapView', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          disabled={dropdownLoading}
+                        >
+                          <option value="">Select a map view</option>
+                          {dropdownData.mapViews.map((view) => (
+                            <option key={view.fullViewName} value={view.viewName}>
+                              {view.fullViewName}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <div className="p-3 bg-gray-50 rounded-md text-sm text-gray-900">
+                          {dqEmail.mapView || "Not configured"}
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Hierarchy
+                      </label>
+                      <div className="p-3 bg-gray-50 rounded-md text-sm text-gray-900">
+                        {dqEmail.hierarchy || "Not configured"}
+                      </div>
+                    </div>
+                  </>
                 )}
               </div>
             </div>
@@ -1010,22 +1344,6 @@ export default function DQEmailDetails() {
                     )}
                   </div>
                 )}
-              </div>
-
-              {/* Insert Edit Email Settings button here */}
-              <div className="mt-8 flex justify-end space-x-4">
-                <button
-                  onClick={() => {
-                    // TODO: Implement general edit functionality
-                    alert("General edit functionality coming soon!");
-                  }}
-                  disabled={showEditor}
-                  className={`px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors ${
-                    showEditor ? "opacity-50 cursor-not-allowed" : ""
-                  }`}
-                >
-                  Edit Email Settings
-                </button>
               </div>
 
               {/* MapRules Mapping Visualization - Only show if we have both template and mapRules */}
@@ -1410,6 +1728,7 @@ export default function DQEmailDetails() {
           )}
         </div>
       </div>
+
     </>
   );
 }
