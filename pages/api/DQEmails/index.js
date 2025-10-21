@@ -75,6 +75,7 @@ async function handleGet(req, res) {
         dqe.EmailSubject as emailSubject,
         dqe.htmlTemplateName,
         dqe.inDev,
+        dqe.RunStoredProcedure as runStoredProcedure,
         dqe.FrequencyInMinutes as frequencyInMinutes,
         dqe.LastRunDateTime as lastRunDateTime,
         (SELECT COUNT(*) 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, memo } from 'react';
 import { 
   CodeBracketIcon, 
   DocumentTextIcon, 
@@ -9,6 +9,41 @@ import {
   TrashIcon,
   ExclamationTriangleIcon
 } from '@heroicons/react/24/solid';
+
+// Component for HTML Template Editor with line numbers - memoized to prevent recreation
+const HTMLTemplateEditor = memo(({ value, onChange, placeholder }) => {
+  const lines = value.split('\n');
+  
+  return (
+    <div className="border border-gray-300 rounded-md overflow-hidden focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500">
+      <div className="flex h-96">
+        {/* Line numbers */}
+        <div className="bg-gray-50 border-r border-gray-300 text-xs text-gray-400 font-mono select-none">
+          <div className="px-3 py-3">
+            {lines.map((_, index) => (
+              <div key={index} className="text-right leading-6 h-6">
+                {index + 1}
+              </div>
+            ))}
+          </div>
+        </div>
+        
+        {/* Editor */}
+        <textarea
+          key="template-editor" // Stable key to prevent recreation
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="flex-1 p-3 border-none font-mono text-sm resize-none focus:outline-none leading-6"
+          placeholder={placeholder}
+          style={{ 
+            lineHeight: '1.5rem', // 24px to match line numbers
+            fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace'
+          }}
+        />
+      </div>
+    </div>
+  );
+});
 
 export default function TemplateXMLEditor({ 
   dqEmail, 
@@ -393,40 +428,6 @@ export default function TemplateXMLEditor({
     }
     
     return result;
-  };
-
-  // Component for HTML Template Editor with line numbers
-  const HTMLTemplateEditor = ({ value, onChange, placeholder }) => {
-    const lines = value.split('\n');
-    
-    return (
-      <div className="border border-gray-300 rounded-md overflow-hidden focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500">
-        <div className="flex h-96">
-          {/* Line numbers */}
-          <div className="bg-gray-50 border-r border-gray-300 text-xs text-gray-400 font-mono select-none">
-            <div className="px-3 py-3">
-              {lines.map((_, index) => (
-                <div key={index} className="text-right leading-6 h-6">
-                  {index + 1}
-                </div>
-              ))}
-            </div>
-          </div>
-          
-          {/* Editor */}
-          <textarea
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            className="flex-1 p-3 border-none font-mono text-sm resize-none focus:outline-none leading-6"
-            placeholder={placeholder}
-            style={{ 
-              lineHeight: '1.5rem', // 24px to match line numbers
-              fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace'
-            }}
-          />
-        </div>
-      </div>
-    );
   };
 
   // Component to render XML diff with line numbers and colors
@@ -950,7 +951,7 @@ export default function TemplateXMLEditor({
     return availableColumns;
   };
 
-  const handleTemplateChange = (newTemplate) => {
+  const handleTemplateChange = useCallback((newTemplate) => {
     setHtmlTemplate(newTemplate);
     
     // Clear existing timeout
@@ -958,98 +959,94 @@ export default function TemplateXMLEditor({
       clearTimeout(templateParseTimeout);
     }
     
-    // Set new timeout for debounced parsing
+    // Set new timeout for debounced parsing (300ms as requested)
     const timeoutId = setTimeout(() => {
       console.log('Debounced template parsing triggered');
-      // Use a callback to get the current state values at execution time
-      setParsedHierarchy(currentHierarchy => {
-        setColumnMappings(currentMappings => {
-          reparseTemplateAndUpdateVisibility(newTemplate, currentMappings, currentHierarchy);
-          return currentMappings; // Don't change columnMappings
-        });
-        return currentHierarchy; // Return original hierarchy, will be updated in reparseTemplateAndUpdateVisibility
-      });
+      // Use functional updates to avoid stale closures and unnecessary re-renders
+      reparseTemplateAndUpdateVisibility(newTemplate);
     }, 300);
     
     setTemplateParseTimeout(timeoutId);
-  };
+  }, [templateParseTimeout]);
 
   // Re-parse template and update field visibility
-  const reparseTemplateAndUpdateVisibility = (templateText, currentColumnMappings, currentHierarchy) => {
-    if (!currentHierarchy.length) return;
-    
-    console.log('Re-evaluating field visibility and detecting new template variables');
-    console.log('Current column mappings:', currentColumnMappings);
-    
-    // Extract all template variables from current template
-    const variableRegex = /\{\{([^}]+)\}\}/g;
-    const currentTemplateVars = new Set();
-    let match;
-    
-    while ((match = variableRegex.exec(templateText)) !== null) {
-      currentTemplateVars.add(match[1].trim());
-    }
-    
-    const updatedHierarchy = currentHierarchy.map(level => {
-      // First, update existing variables' visibility and remove orphaned hidden fields
-      const updatedVariables = level.variables.filter(variable => {
-        const isInTemplate = currentTemplateVars.has(variable.templateVar);
-        const isMapped = currentColumnMappings[variable.templateVar] && currentColumnMappings[variable.templateVar] !== '';
+  const reparseTemplateAndUpdateVisibility = (templateText) => {
+    // Get current state values at the time of execution
+    setParsedHierarchy(currentHierarchy => {
+      if (!currentHierarchy.length) return currentHierarchy;
+      
+      console.log('Re-evaluating field visibility and detecting new template variables');
+      
+      // Extract all template variables from current template
+      const variableRegex = /\{\{([^}]+)\}\}/g;
+      const currentTemplateVars = new Set();
+      let match;
+      
+      while ((match = variableRegex.exec(templateText)) !== null) {
+        currentTemplateVars.add(match[1].trim());
+      }
+      
+      const updatedHierarchy = currentHierarchy.map(level => {
+        // First, update existing variables' visibility and remove orphaned hidden fields
+        const updatedVariables = level.variables.filter(variable => {
+          const isInTemplate = currentTemplateVars.has(variable.templateVar);
+          const isMapped = columnMappings[variable.templateVar] && columnMappings[variable.templateVar] !== '';
+          
+          console.log(`Checking field ${variable.templateVar}: inTemplate=${isInTemplate}, isMapped=${isMapped}, isHidden=${variable.isHidden}`);
+          
+          // Remove if: hidden + not in template + not mapped
+          if (variable.isHidden && !isInTemplate && !isMapped) {
+            console.log(`Removing orphaned hidden field: ${variable.templateVar} (not in template and not mapped)`);
+            return false;
+          }
+          
+          return true;
+        }).map(variable => {
+          const wasHidden = variable.isHidden;
+          const isNowHidden = isFieldHidden(variable.templateVar, templateText);
+          
+          if (wasHidden !== isNowHidden) {
+            console.log(`Field visibility changed: ${variable.templateVar} was ${wasHidden ? 'hidden' : 'visible'}, now ${isNowHidden ? 'hidden' : 'visible'}`);
+          }
+          
+          return {
+            ...variable,
+            isHidden: isNowHidden
+          };
+        });
         
-        console.log(`Checking field ${variable.templateVar}: inTemplate=${isInTemplate}, isMapped=${isMapped}, isHidden=${variable.isHidden}`);
+        // Find template variables that belong to this level but aren't tracked yet
+        const existingVars = new Set(updatedVariables.map(v => v.templateVar));
+        const newVariables = [];
         
-        // Remove if: hidden + not in template + not mapped
-        if (variable.isHidden && !isInTemplate && !isMapped) {
-          console.log(`Removing orphaned hidden field: ${variable.templateVar} (not in template and not mapped)`);
-          return false;
-        }
+        [...currentTemplateVars].forEach(templateVar => {
+          // Check if this template variable belongs to this level (starts with level.variable.)
+          if (templateVar.startsWith(level.variable + '.') && !existingVars.has(templateVar)) {
+            const fieldName = templateVar.split('.')[1];
+            console.log(`Found new template variable: ${templateVar} (field: ${fieldName}) for level ${level.collection}`);
+            
+            newVariables.push({
+              templateVar: templateVar,
+              fieldName: fieldName,
+              mappedColumn: null,
+              isHidden: isFieldHidden(templateVar, templateText)
+            });
+          }
+        });
         
-        return true;
-      }).map(variable => {
-        const wasHidden = variable.isHidden;
-        const isNowHidden = isFieldHidden(variable.templateVar, templateText);
-        
-        if (wasHidden !== isNowHidden) {
-          console.log(`Field visibility changed: ${variable.templateVar} was ${wasHidden ? 'hidden' : 'visible'}, now ${isNowHidden ? 'hidden' : 'visible'}`);
+        if (newVariables.length > 0) {
+          console.log(`Adding ${newVariables.length} new template variables to level ${level.collection}`);
         }
         
         return {
-          ...variable,
-          isHidden: isNowHidden
+          ...level,
+          variables: [...updatedVariables, ...newVariables]
         };
       });
       
-      // Find template variables that belong to this level but aren't tracked yet
-      const existingVars = new Set(updatedVariables.map(v => v.templateVar));
-      const newVariables = [];
-      
-      [...currentTemplateVars].forEach(templateVar => {
-        // Check if this template variable belongs to this level (starts with level.variable.)
-        if (templateVar.startsWith(level.variable + '.') && !existingVars.has(templateVar)) {
-          const fieldName = templateVar.split('.')[1];
-          console.log(`Found new template variable: ${templateVar} (field: ${fieldName}) for level ${level.collection}`);
-          
-          newVariables.push({
-            templateVar: templateVar,
-            fieldName: fieldName,
-            mappedColumn: null,
-            isHidden: isFieldHidden(templateVar, templateText)
-          });
-        }
-      });
-      
-      if (newVariables.length > 0) {
-        console.log(`Adding ${newVariables.length} new template variables to level ${level.collection}`);
-      }
-      
-      return {
-        ...level,
-        variables: [...updatedVariables, ...newVariables]
-      };
+      console.log('Setting updated hierarchy:', updatedHierarchy);
+      return updatedHierarchy;
     });
-    
-    console.log('Setting updated hierarchy:', updatedHierarchy);
-    setParsedHierarchy(updatedHierarchy);
   };
 
   // Cleanup timeout on unmount

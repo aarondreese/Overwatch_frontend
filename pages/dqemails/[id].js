@@ -41,11 +41,12 @@ import {
   getDQEmailResources,
   updateHtmlTemplate,
 } from "@/lib/client/dqemails";
-import { listHtmlTemplates } from "@/lib/client/htmlTemplates";
+import { listHtmlTemplates, getTemplateUsage } from "@/lib/client/htmlTemplates";
 import { listMapViews } from "@/lib/client/mapViews";
 import { listDQChecks } from "@/lib/client/dqchecks";
 import { listStoredProcedures } from "@/lib/client/storedProcedures";
 import TemplateXMLEditor from "@/components/TemplateXMLEditor";
+import SchedulesModal from "@/components/SchedulesModal";
 
 import {
   ArrowLeftIcon,
@@ -87,12 +88,39 @@ export default function DQEmailDetails() {
     storedProcedures: []
   });
   const [dropdownLoading, setDropdownLoading] = useState(false);
+  const [templateUsage, setTemplateUsage] = useState(null);
+  const [templateUsageLoading, setTemplateUsageLoading] = useState(false);
+  const [showSchedulesModal, setShowSchedulesModal] = useState(false);
 
   useEffect(() => {
     if (id) {
       fetchDQEmail();
     }
   }, [id]);
+
+  // Check template usage when template name changes
+  useEffect(() => {
+    if (dqEmail?.htmlTemplateName) {
+      checkTemplateUsage(dqEmail.htmlTemplateName);
+    } else {
+      setTemplateUsage(null);
+    }
+  }, [dqEmail?.htmlTemplateName]);
+
+  const checkTemplateUsage = async (templateName) => {
+    if (!templateName) return;
+    
+    setTemplateUsageLoading(true);
+    try {
+      const usage = await getTemplateUsage(templateName);
+      setTemplateUsage(usage);
+    } catch (err) {
+      console.error('Error checking template usage:', err);
+      setTemplateUsage(null);
+    } finally {
+      setTemplateUsageLoading(false);
+    }
+  };
 
   const fetchDQEmail = async () => {
     try {
@@ -266,6 +294,40 @@ export default function DQEmailDetails() {
     setEditFormData({});
   };
 
+  const handleFixHierarchy = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`/api/DQEmails/fix-hierarchy?id=${id}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        console.log('Hierarchy fix result:', result);
+        // Refresh the DQ email data to show updated hierarchy
+        await fetchDQEmail();
+        // Also refresh resources if needed
+        if (dqEmail.htmlTemplateName || dqEmail.mapView) {
+          fetchEmailResources(dqEmail.htmlTemplateName, dqEmail.mapView);
+        }
+        
+        // Show success message - you could replace this with a toast notification
+        alert(`Hierarchy updated successfully!\nPrevious: ${result.previousHierarchy || 'none'}\nNew: ${result.newHierarchy}`);
+      } else {
+        alert(`Error fixing hierarchy: ${result.message}`);
+      }
+    } catch (error) {
+      console.error('Error fixing hierarchy:', error);
+      alert(`Error fixing hierarchy: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const isFormValid = () => {
     if (editFormData.useStoredProcedure) {
       // Stored Procedure mode - requires stored procedure
@@ -319,6 +381,18 @@ export default function DQEmailDetails() {
       ...prev,
       [field]: value
     }));
+    
+    // Check template usage when HTML template changes
+    if (field === 'htmlTemplateName' && value) {
+      checkTemplateUsage(value);
+    } else if (field === 'htmlTemplateName' && !value) {
+      setTemplateUsage(null);
+    }
+  };
+
+  const handleScheduleUpdate = async () => {
+    // Refresh the DQ email data to update schedule counts
+    await fetchDQEmail();
   };
 
   const formatDate = (dateString) => {
@@ -818,7 +892,10 @@ export default function DQEmailDetails() {
               </div>
             </div>
 
-            <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-6">
+            <div 
+              className="bg-white rounded-lg shadow-lg border border-gray-200 p-6 cursor-pointer hover:bg-gray-50 transition-colors"
+              onClick={() => setShowSchedulesModal(true)}
+            >
               <div className="flex items-center">
                 <ClockIcon className="h-8 w-8 text-purple-600" />
                 <div className="ml-4">
@@ -827,6 +904,9 @@ export default function DQEmailDetails() {
                   </div>
                   <div className="text-sm text-gray-500">Active Schedules</div>
                 </div>
+              </div>
+              <div className="mt-2 text-xs text-gray-400">
+                Click to manage schedules
               </div>
             </div>
 
@@ -1083,23 +1163,115 @@ export default function DQEmailDetails() {
                         HTML Template
                       </label>
                       {isEditing ? (
-                        <select
-                          value={editFormData.htmlTemplateName || ''}
-                          onChange={(e) => handleFormChange('htmlTemplateName', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          disabled={dropdownLoading}
-                        >
-                          <option value="">Select a template</option>
-                          {dropdownData.htmlTemplates.map((template) => (
-                            <option key={template.name} value={template.name}>
-                              {template.name}
-                            </option>
-                          ))}
-                        </select>
+                        <>
+                          <select
+                            value={editFormData.htmlTemplateName || ''}
+                            onChange={(e) => handleFormChange('htmlTemplateName', e.target.value)}
+                            className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                              templateUsage && templateUsage.totalUsageCount > 1 
+                                ? 'border-red-300 bg-red-50' 
+                                : 'border-gray-300'
+                            }`}
+                            disabled={dropdownLoading}
+                          >
+                            <option value="">Select a template</option>
+                            {dropdownData.htmlTemplates.map((template) => (
+                              <option key={template.name} value={template.name}>
+                                {template.name}
+                              </option>
+                            ))}
+                          </select>
+                          
+                          {/* Shared Template Warning */}
+                          {templateUsage && templateUsage.totalUsageCount > 1 && (
+                            <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-md">
+                              <div className="flex items-start">
+                                <ExclamationTriangleIcon className="h-5 w-5 text-red-400 mt-0.5 mr-2" />
+                                <div>
+                                  <h4 className="text-sm font-medium text-red-800">
+                                    Shared Template Warning
+                                  </h4>
+                                  <p className="text-sm text-red-700 mt-1">
+                                    This template is used in {templateUsage.totalUsageCount} places. 
+                                    Changes will affect:
+                                  </p>
+                                  
+                                  {/* Email Usage */}
+                                  {templateUsage.emailUsageCount > 0 && (
+                                    <div className="mt-2">
+                                      <p className="text-xs font-medium text-red-800 mb-1">
+                                        DQ Emails ({templateUsage.emailUsageCount}):
+                                      </p>
+                                      <ul className="text-sm text-red-700 space-y-1">
+                                        {templateUsage.emails.slice(0, 3).map((email) => (
+                                          <li key={email.id} className="flex items-center">
+                                            <span className="w-2 h-2 bg-red-400 rounded-full mr-2"></span>
+                                            {email.emailName}
+                                            {!email.isActive && <span className="ml-2 text-xs text-gray-500">(Inactive)</span>}
+                                            {email.inDev && <span className="ml-2 text-xs text-blue-600">(Dev)</span>}
+                                          </li>
+                                        ))}
+                                        {templateUsage.emails.length > 3 && (
+                                          <li className="text-xs text-red-600">
+                                            ... and {templateUsage.emails.length - 3} more emails
+                                          </li>
+                                        )}
+                                      </ul>
+                                    </div>
+                                  )}
+                                  
+                                  {/* Stored Procedure Usage */}
+                                  {templateUsage.storedProcUsageCount > 0 && (
+                                    <div className="mt-2">
+                                      <p className="text-xs font-medium text-red-800 mb-1">
+                                        Stored Procedures ({templateUsage.storedProcUsageCount}):
+                                      </p>
+                                      <ul className="text-sm text-red-700 space-y-1">
+                                        {templateUsage.storedProcedures.slice(0, 3).map((proc) => (
+                                          <li key={proc.fullProcedureName} className="flex items-center">
+                                            <span className="w-2 h-2 bg-orange-400 rounded-full mr-2"></span>
+                                            <span className="font-mono text-xs">{proc.fullProcedureName}</span>
+                                          </li>
+                                        ))}
+                                        {templateUsage.storedProcedures.length > 3 && (
+                                          <li className="text-xs text-red-600">
+                                            ... and {templateUsage.storedProcedures.length - 3} more procedures
+                                          </li>
+                                        )}
+                                      </ul>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </>
                       ) : (
-                        <div className="p-3 bg-gray-50 rounded-md text-sm text-gray-900">
-                          {dqEmail.htmlTemplateName || "No template specified"}
-                        </div>
+                        <>
+                          <div className={`p-3 rounded-md text-sm text-gray-900 ${
+                            templateUsage && templateUsage.totalUsageCount > 1 
+                              ? 'bg-red-50 border border-red-200' 
+                              : 'bg-gray-50'
+                          }`}>
+                            {dqEmail.htmlTemplateName || "No template specified"}
+                          </div>
+                          
+                          {/* Shared Template Warning - View Mode */}
+                          {templateUsage && templateUsage.totalUsageCount > 1 && (
+                            <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-md">
+                              <div className="flex items-center text-sm text-red-700">
+                                <ExclamationTriangleIcon className="h-4 w-4 text-red-400 mr-1" />
+                                This template is used in {templateUsage.totalUsageCount} places
+                                {templateUsage.emailUsageCount > 1 && (
+                                  <span className="ml-1">({templateUsage.emailUsageCount - 1} other email{templateUsage.emailUsageCount > 2 ? 's' : ''})</span>
+                                )}
+                                {templateUsage.storedProcUsageCount > 0 && (
+                                  <span className="ml-1">({templateUsage.storedProcUsageCount} procedure{templateUsage.storedProcUsageCount > 1 ? 's' : ''})</span>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
 
@@ -1459,21 +1631,35 @@ export default function DQEmailDetails() {
                             // Use the same color array for highlighting in HTML Template
                             const colors = loopColors;
 
-                            // Parse the hierarchy from dqEmail.hierarchy (e.g., "serviceLeads>supportWorkers>properties")
-                            const hierarchyOrder = dqEmail.hierarchy
-                              ? dqEmail.hierarchy.split(">")
-                              : [];
+                            // Extract template hierarchy order from the existing forDirectives
+                            // Apply same normalization as backend: take last segment after dots
+                            const normalized = [];
+                            forDirectives.forEach((fd) => {
+                              let collection = fd.collection || "";
+                              collection = collection.trim();
+                              if (!collection) return;
+                              const parts = collection.split('.');
+                              const last = parts[parts.length - 1];
+                              const val = last.trim();
+                              if (val && !normalized.includes(val)) normalized.push(val);
+                            });
+                            const templateHierarchyOrder = normalized;
+                            
                             const collections = Array.from(
                               new Set(mappings.map((m) => m.collection))
                             );
 
-                            // If no hierarchy defined, just show collections in order found
-                            const orderedCollections =
-                              hierarchyOrder.length > 0
-                                ? hierarchyOrder.filter((h) =>
-                                    collections.includes(h)
-                                  )
-                                : collections;
+                            // Check if database hierarchy matches template hierarchy
+                            const templateHierarchyString = templateHierarchyOrder.join('>');
+                            const databaseHierarchy = dqEmail.hierarchy || '';
+                            const hierarchyMismatch = templateHierarchyString !== databaseHierarchy;
+
+                            // Use template-based hierarchy order instead of database field
+                            const orderedCollections = templateHierarchyOrder.length > 0
+                              ? templateHierarchyOrder.filter((h) =>
+                                  collections.includes(h)
+                                )
+                              : collections;
 
                             // Create mapping between collections and ^For directives
                             const getCollectionColor = (
@@ -1616,13 +1802,37 @@ export default function DQEmailDetails() {
                             return (
                               <div className="space-y-4">
                                 {/* Hierarchy Visualization */}
-                                {hierarchyOrder.length > 0 && (
+                                {templateHierarchyOrder.length > 0 && (
                                   <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
-                                    <h4 className="text-sm font-semibold text-gray-700 mb-3">
-                                      Data Hierarchy Structure:
-                                    </h4>
+                                    <div className="flex items-center justify-between mb-3">
+                                      <h4 className="text-sm font-semibold text-gray-700">
+                                        Data Hierarchy Structure:
+                                        {hierarchyMismatch && (
+                                          <span className="ml-2 px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full">
+                                            Mismatch detected
+                                          </span>
+                                        )}
+                                      </h4>
+                                      <button
+                                        onClick={handleFixHierarchy}
+                                        disabled={loading}
+                                        className={`px-3 py-1 text-xs rounded-md flex items-center space-x-1 ${
+                                          hierarchyMismatch 
+                                            ? 'bg-orange-500 hover:bg-orange-600 text-white' 
+                                            : 'bg-blue-500 hover:bg-blue-600 text-white'
+                                        } disabled:bg-gray-400`}
+                                        title={
+                                          hierarchyMismatch 
+                                            ? `Database: "${databaseHierarchy}" → Template: "${templateHierarchyString}"`
+                                            : "Hierarchy is up to date"
+                                        }
+                                      >
+                                        <ArrowRightIcon className="h-3 w-3" />
+                                        <span>{hierarchyMismatch ? 'Fix Hierarchy' : 'Refresh Hierarchy'}</span>
+                                      </button>
+                                    </div>
                                     <div className="flex items-center space-x-2 text-sm">
-                                      {hierarchyOrder.map(
+                                      {templateHierarchyOrder.map(
                                         (collection, index) => (
                                           <div
                                             key={collection}
@@ -1632,7 +1842,7 @@ export default function DQEmailDetails() {
                                               {collection}
                                             </span>
                                             {index <
-                                              hierarchyOrder.length - 1 && (
+                                              templateHierarchyOrder.length - 1 && (
                                               <ArrowRightIcon className="h-4 w-4 text-gray-400 mx-2" />
                                             )}
                                           </div>
@@ -1701,33 +1911,143 @@ export default function DQEmailDetails() {
           {/* Template-XML Editor */}
           {showEditor && dqEmail.htmlTemplateName && resources.template && (
             <div className="mt-8">
-              <TemplateXMLEditor
-                dqEmail={dqEmail}
-                templateText={resources.template.text}
-                mapViewColumns={resources.mapViewColumns}
-                formatXml={formatXml}
-                formatHtml={formatHtml}
-                onSave={handleEditorSave}
-                onCancel={handleEditorCancel}
-                onChangesDetected={setHasUnsavedChanges}
-              />
+              {/* Shared Template Warning for Editor */}
+              {templateUsage && templateUsage.totalUsageCount > 1 && (
+                <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                  <div className="flex items-start">
+                    <ExclamationTriangleIcon className="h-6 w-6 text-red-500 mt-0.5 mr-3" />
+                    <div>
+                      <h3 className="text-lg font-semibold text-red-800">
+                        ⚠️ Editing Shared Template
+                      </h3>
+                      <p className="text-sm text-red-700 mt-1">
+                        <strong>Warning:</strong> This template is used in {templateUsage.totalUsageCount} places. 
+                        Any changes you make will immediately affect:
+                      </p>
+                      
+                      <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Email Usage */}
+                        {templateUsage.emailUsageCount > 0 && (
+                          <div>
+                            <h4 className="text-sm font-semibold text-red-800 mb-2">
+                              DQ Emails ({templateUsage.emailUsageCount}):
+                            </h4>
+                            <div className="max-h-32 overflow-y-auto">
+                              <ul className="text-sm text-red-700 space-y-1">
+                                {templateUsage.emails.map((email) => (
+                                  <li key={email.id} className="flex items-center">
+                                    <span className="w-2 h-2 bg-red-500 rounded-full mr-2"></span>
+                                    <span className="font-medium">{email.emailName}</span>
+                                    {!email.isActive && <span className="ml-2 text-xs text-gray-500">(Inactive)</span>}
+                                    {email.inDev && <span className="ml-2 text-xs text-blue-600">(Dev)</span>}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Stored Procedure Usage */}
+                        {templateUsage.storedProcUsageCount > 0 && (
+                          <div>
+                            <h4 className="text-sm font-semibold text-red-800 mb-2">
+                              Stored Procedures ({templateUsage.storedProcUsageCount}):
+                            </h4>
+                            <div className="max-h-32 overflow-y-auto">
+                              <ul className="text-sm text-red-700 space-y-1">
+                                {templateUsage.storedProcedures.map((proc) => (
+                                  <li key={proc.fullProcedureName} className="block">
+                                    <div className="flex items-center mb-1">
+                                      <span className="w-2 h-2 bg-orange-500 rounded-full mr-2"></span>
+                                      <span className="font-mono text-xs font-medium">{proc.fullProcedureName}</span>
+                                    </div>
+                                    {proc.context && proc.context.length > 0 && (
+                                      <div className="ml-4 text-xs text-red-600 bg-red-100 p-1 rounded font-mono">
+                                        Line {proc.context[0].lineNumber}: {proc.context[0].matchedLine.substring(0, 60)}
+                                        {proc.context[0].matchedLine.length > 60 && '...'}
+                                      </div>
+                                    )}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <p className="text-sm text-red-800 mt-3 font-medium">
+                        Consider creating a copy of this template if you need email-specific changes.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              <div className={`${templateUsage && templateUsage.totalUsageCount > 1 ? 'border-2 border-red-300 rounded-lg p-1' : ''}`}>
+                <TemplateXMLEditor
+                  dqEmail={dqEmail}
+                  templateText={resources.template.text}
+                  mapViewColumns={resources.mapViewColumns}
+                  formatXml={formatXml}
+                  formatHtml={formatHtml}
+                  onSave={handleEditorSave}
+                  onCancel={handleEditorCancel}
+                  onChangesDetected={setHasUnsavedChanges}
+                />
+              </div>
             </div>
           )}
 
           {/* Show Edit Template button only for template-based emails */}
           {dqEmail.htmlTemplateName && resources.template && !showEditor && (
-            <div className="mt-8 flex justify-end space-x-4">
-              <button
-                onClick={() => setShowEditor(true)}
-                className="px-6 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors flex items-center"
-              >
-                <PencilSquareIcon className="h-4 w-4 mr-2" />
-                Edit Template & Mapping
-              </button>
+            <div className="mt-8">
+              {/* Shared Template Warning for Edit Button */}
+              {templateUsage && templateUsage.totalUsageCount > 1 && (
+                <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <div className="flex items-center text-sm text-yellow-800">
+                    <ExclamationTriangleIcon className="h-5 w-5 text-yellow-500 mr-2" />
+                    <div>
+                      <span>
+                        <strong>Note:</strong> This template is used in {templateUsage.totalUsageCount} places
+                        {templateUsage.emailUsageCount > 1 && (
+                          <span> (including {templateUsage.emailUsageCount - 1} other email{templateUsage.emailUsageCount > 2 ? 's' : ''})</span>
+                        )}
+                        {templateUsage.storedProcUsageCount > 0 && (
+                          <span> and {templateUsage.storedProcUsageCount} stored procedure{templateUsage.storedProcUsageCount > 1 ? 's' : ''}</span>
+                        )}
+                        . Editing will affect all references.
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              <div className="flex justify-end space-x-4">
+                <button
+                  onClick={() => setShowEditor(true)}
+                  className={`px-6 py-2 text-white rounded-md hover:bg-purple-700 transition-colors flex items-center ${
+                    templateUsage && templateUsage.totalUsageCount > 1 
+                      ? 'bg-red-600 hover:bg-red-700 border-2 border-red-300' 
+                      : 'bg-purple-600'
+                  }`}
+                >
+                  <PencilSquareIcon className="h-4 w-4 mr-2" />
+                  {templateUsage && templateUsage.totalUsageCount > 1 ? 'Edit Shared Template' : 'Edit Template & Mapping'}
+                </button>
+              </div>
             </div>
           )}
         </div>
       </div>
+
+      {/* Schedules Modal */}
+      <SchedulesModal
+        isOpen={showSchedulesModal}
+        onClose={() => setShowSchedulesModal(false)}
+        dqEmailId={id}
+        emailName={dqEmail?.emailName}
+        onScheduleUpdate={handleScheduleUpdate}
+      />
 
     </>
   );

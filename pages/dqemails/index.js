@@ -211,7 +211,7 @@ export default function DQEmails() {
                       Schedules
                     </th>
                     <th className="px-3 sm:px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6">
-                      DQ Check & Actions
+                      DQ Check / Stored Procedure
                     </th>
                   </tr>
                 </thead>
@@ -292,22 +292,24 @@ export default function DQEmails() {
                         </span>
                       </td>
 
-                      {/* DQ Check & Actions */}
+                      {/* DQ Check / Stored Procedure */}
                       <td className="px-3 sm:px-6 py-4 text-right w-1/6">
-                        <div className="flex items-center justify-end space-x-2">
-                          <div className="text-xs text-gray-600 truncate flex-1 text-left" title={email.dqCheckFunction}>
-                            {email.dqCheckFunction || "No DQ Check"}
-                          </div>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              router.push(`/dqemails/${email.id}`);
-                            }}
-                            className="text-blue-600 hover:text-blue-900 transition-colors p-1 flex-shrink-0"
-                            title="View details"
-                          >
-                            <PencilSquareIcon className="h-4 w-4" />
-                          </button>
+                        <div className="text-xs text-gray-600 truncate" title={email.dqCheckFunction || email.runStoredProcedure}>
+                          {email.dqCheckFunction && (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                              <span className="w-2 h-2 bg-blue-400 rounded-full mr-1"></span>
+                              {email.dqCheckFunction}
+                            </span>
+                          )}
+                          {email.runStoredProcedure && !email.dqCheckFunction && (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                              <span className="w-2 h-2 bg-purple-400 rounded-full mr-1"></span>
+                              {email.runStoredProcedure}
+                            </span>
+                          )}
+                          {!email.dqCheckFunction && !email.runStoredProcedure && (
+                            <span className="text-gray-400 italic">Not configured</span>
+                          )}
                         </div>
                       </td>
                     </tr>
