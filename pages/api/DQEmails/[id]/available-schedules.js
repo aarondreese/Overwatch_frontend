@@ -2,9 +2,9 @@ import { executeQuery } from "@/lib/db";
 
 export default async function handler(req, res) {
   const { method } = req;
-  const { dqEmailId } = req.query;
+  const { id } = req.query;
 
-  if (!dqEmailId) {
+  if (!id) {
     return res.status(400).json({
       success: false,
       message: "DQ Email ID is required",
@@ -40,7 +40,7 @@ export default async function handler(req, res) {
       ORDER BY sms.Title
     `;
 
-    const result = await executeQuery(query, { dqEmailId: parseInt(dqEmailId) });
+    const result = await executeQuery(query, { dqEmailId: parseInt(id) });
 
     const schedules = result.recordset.map((schedule) => ({
       scheduleId: schedule.scheduleId,

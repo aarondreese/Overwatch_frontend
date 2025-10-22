@@ -2,14 +2,14 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
 import Link from "next/link";
-import RunHistoryModal from '@/components/RunHistoryModal';
-import { 
-  getDQCheckByID, 
-  updateDQCheckStatus, 
+import RunHistoryModal from "@/components/RunHistoryModal";
+import {
+  getDQCheckByID,
+  updateDQCheckStatus,
   updateDQCheckLifetime,
   updateDQCheckWarningLevel,
   updateDQCheckExplanation,
-  updateDQCheckTestStatus
+  updateDQCheckTestStatus,
 } from "@/lib/client/dqchecks";
 
 import {
@@ -39,7 +39,7 @@ export default function DQCheckDetail() {
   const [explanationValue, setExplanationValue] = useState("");
   const [scheduleRelationships, setScheduleRelationships] = useState([]);
   const [availableSchedules, setAvailableSchedules] = useState([]);
-  const [selectedScheduleToAdd, setSelectedScheduleToAdd] = useState('');
+  const [selectedScheduleToAdd, setSelectedScheduleToAdd] = useState("");
   const [loadingSchedules, setLoadingSchedules] = useState(false);
   const [addingSchedule, setAddingSchedule] = useState(false);
   const [deletingRelationships, setDeletingRelationships] = useState(new Set());
@@ -61,34 +61,34 @@ export default function DQCheckDetail() {
 
   function updateLocalScheduleCounts() {
     if (!dqCheck) return;
-    
+
     // Calculate new counts from current relationships
-    const activeCount = scheduleRelationships.filter(rel => 
-      rel.isEnabled && rel.schedule.isEnabled
+    const activeCount = scheduleRelationships.filter(
+      (rel) => rel.isEnabled && rel.schedule.isEnabled
     ).length;
-    
-    const inactiveCount = scheduleRelationships.filter(rel => 
-      !rel.isEnabled || !rel.schedule.isEnabled
+
+    const inactiveCount = scheduleRelationships.filter(
+      (rel) => !rel.isEnabled || !rel.schedule.isEnabled
     ).length;
-    
+
     // Update local DQ check state
-    setDQCheck(prev => ({
+    setDQCheck((prev) => ({
       ...prev,
       activeScheduleCount: activeCount,
       inactiveScheduleCount: inactiveCount,
-      scheduleCount: activeCount // Keep for backward compatibility
+      scheduleCount: activeCount, // Keep for backward compatibility
     }));
   }
 
   async function loadScheduleData() {
     if (!id) return;
-    
+
     setLoadingSchedules(true);
     try {
       // Load relationships and available schedules in parallel
       const [relationshipsRes, schedulesRes] = await Promise.all([
         fetch(`/api/DQChecks/${id}/schedules`),
-        fetch('/api/Schedules')
+        fetch("/api/Schedules"),
       ]);
 
       const relationshipsData = await relationshipsRes.json();
@@ -96,16 +96,16 @@ export default function DQCheckDetail() {
 
       if (relationshipsData.success && schedulesData.success) {
         setScheduleRelationships(relationshipsData.data);
-        
+
         // Filter available schedules
-        const assignedIds = relationshipsData.data.map(rel => rel.scheduleId);
-        const available = schedulesData.data.filter(schedule => 
-          !assignedIds.includes(schedule.id) && schedule.isEnabled
+        const assignedIds = relationshipsData.data.map((rel) => rel.scheduleId);
+        const available = schedulesData.data.filter(
+          (schedule) => !assignedIds.includes(schedule.id) && schedule.isEnabled
         );
         setAvailableSchedules(available);
       }
     } catch (error) {
-      console.error('Error loading schedule data:', error);
+      console.error("Error loading schedule data:", error);
     } finally {
       setLoadingSchedules(false);
     }
@@ -116,7 +116,7 @@ export default function DQCheckDetail() {
       console.error("No ID available for fetching DQ check");
       return;
     }
-    
+
     try {
       setLoading(true);
       const data = await getDQCheckByID(id);
@@ -130,7 +130,7 @@ export default function DQCheckDetail() {
 
   async function handleToggleStatus() {
     if (!dqCheck) return;
-    
+
     try {
       await updateDQCheckStatus(dqCheck.id, !dqCheck.isActive);
       // Update local state
@@ -142,7 +142,7 @@ export default function DQCheckDetail() {
 
   async function handleToggleTestStatus() {
     if (!dqCheck) return;
-    
+
     try {
       await updateDQCheckTestStatus(dqCheck.id, !dqCheck.isInTest);
       setDQCheck({ ...dqCheck, isInTest: !dqCheck.isInTest });
@@ -167,7 +167,7 @@ export default function DQCheckDetail() {
       alert("Lifetime must be a number between 0 and 9999");
       return;
     }
-    
+
     try {
       await updateDQCheckLifetime(dqCheck.id, value);
       setDQCheck({ ...dqCheck, lifetime: value });
@@ -184,7 +184,7 @@ export default function DQCheckDetail() {
       alert("Warning Level must be a number between 1 and 100");
       return;
     }
-    
+
     try {
       await updateDQCheckWarningLevel(dqCheck.id, value);
       setDQCheck({ ...dqCheck, warningLevel: value });
@@ -226,24 +226,28 @@ export default function DQCheckDetail() {
     setExplanationValue("");
   }
 
-  async function handleToggleScheduleRelationship(relationshipId, scheduleId, currentEnabled) {
+  async function handleToggleScheduleRelationship(
+    relationshipId,
+    scheduleId,
+    currentEnabled
+  ) {
     try {
-      const response = await fetch('/api/DQCheck_Schedule', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/DQCheck_Schedule", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           dqCheckId: id,
           scheduleId: scheduleId,
-          isEnabled: !currentEnabled
+          isEnabled: !currentEnabled,
         }),
       });
 
       const result = await response.json();
       if (result.success) {
         // Update local state immediately
-        setScheduleRelationships(prev => 
-          prev.map(rel => 
-            rel.relationshipId === relationshipId 
+        setScheduleRelationships((prev) =>
+          prev.map((rel) =>
+            rel.relationshipId === relationshipId
               ? { ...rel, isEnabled: !currentEnabled }
               : rel
           )
@@ -252,8 +256,8 @@ export default function DQCheckDetail() {
         alert(`Failed to update schedule relationship: ${result.message}`);
       }
     } catch (error) {
-      console.error('Error updating schedule relationship:', error);
-      alert('Failed to update schedule relationship');
+      console.error("Error updating schedule relationship:", error);
+      alert("Failed to update schedule relationship");
     }
   }
 
@@ -262,19 +266,21 @@ export default function DQCheckDetail() {
 
     try {
       setAddingSchedule(true);
-      const response = await fetch('/api/DQCheck_Schedule', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/DQCheck_Schedule", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           dqCheckId: id,
-          scheduleId: parseInt(selectedScheduleToAdd)
+          scheduleId: parseInt(selectedScheduleToAdd),
         }),
       });
 
       const result = await response.json();
       if (result.success) {
         // Find the selected schedule and create relationship object
-        const selectedSchedule = availableSchedules.find(s => s.id === parseInt(selectedScheduleToAdd));
+        const selectedSchedule = availableSchedules.find(
+          (s) => s.id === parseInt(selectedScheduleToAdd)
+        );
         if (selectedSchedule) {
           const newRelationship = {
             relationshipId: `temp_${Date.now()}`,
@@ -287,53 +293,61 @@ export default function DQCheckDetail() {
               isEnabled: selectedSchedule.isEnabled,
               activeFrom: selectedSchedule.activeFrom,
               activeTo: selectedSchedule.activeTo,
-              days: selectedSchedule.showMySchedule?.days || '',
-              times: selectedSchedule.showMySchedule?.times || ''
-            }
+              days: selectedSchedule.showMySchedule?.days || "",
+              times: selectedSchedule.showMySchedule?.times || "",
+            },
           };
 
           // Update local state
-          setScheduleRelationships(prev => [...prev, newRelationship]);
-          setAvailableSchedules(prev => prev.filter(s => s.id !== selectedSchedule.id));
-          setSelectedScheduleToAdd('');
+          setScheduleRelationships((prev) => [...prev, newRelationship]);
+          setAvailableSchedules((prev) =>
+            prev.filter((s) => s.id !== selectedSchedule.id)
+          );
+          setSelectedScheduleToAdd("");
         }
       } else {
         alert(`Failed to add schedule relationship: ${result.message}`);
       }
     } catch (error) {
-      console.error('Error adding schedule relationship:', error);
-      alert('Failed to add schedule relationship');
+      console.error("Error adding schedule relationship:", error);
+      alert("Failed to add schedule relationship");
     } finally {
       setAddingSchedule(false);
     }
   }
 
-  async function handleDeleteScheduleRelationship(relationshipId, scheduleId, scheduleName) {
+  async function handleDeleteScheduleRelationship(
+    relationshipId,
+    scheduleId,
+    scheduleName
+  ) {
     const confirmed = window.confirm(
       `Are you sure you want to delete the relationship with "${scheduleName}"?`
     );
     if (!confirmed) return;
 
     try {
-      setDeletingRelationships(prev => new Set([...prev, relationshipId]));
-      
-      const response = await fetch('/api/DQCheck_Schedule', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
+      setDeletingRelationships((prev) => new Set([...prev, relationshipId]));
+
+      const response = await fetch("/api/DQCheck_Schedule", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           dqCheckId: id,
-          scheduleId: scheduleId
+          scheduleId: scheduleId,
         }),
       });
 
       const result = await response.json();
       if (result.success) {
         // Find deleted relationship to add back to available
-        const deletedRel = scheduleRelationships.find(rel => rel.relationshipId === relationshipId);
-        
+        const deletedRel = scheduleRelationships.find(
+          (rel) => rel.relationshipId === relationshipId
+        );
+
         // Remove from relationships
-        setScheduleRelationships(prev => 
-          prev.filter(rel => rel.relationshipId !== relationshipId)
+        setScheduleRelationships((prev) =>
+          prev.filter((rel) => rel.relationshipId !== relationshipId)
         );
 
         // Add back to available if enabled
@@ -346,19 +360,23 @@ export default function DQCheckDetail() {
             activeTo: deletedRel.schedule.activeTo,
             showMySchedule: {
               days: deletedRel.schedule.days,
-              times: deletedRel.schedule.times
-            }
+              times: deletedRel.schedule.times,
+            },
           };
-          setAvailableSchedules(prev => [...prev, scheduleToAddBack].sort((a, b) => a.title.localeCompare(b.title)));
+          setAvailableSchedules((prev) =>
+            [...prev, scheduleToAddBack].sort((a, b) =>
+              a.title.localeCompare(b.title)
+            )
+          );
         }
       } else {
         alert(`Failed to delete schedule relationship: ${result.message}`);
       }
     } catch (error) {
-      console.error('Error deleting schedule relationship:', error);
-      alert('Failed to delete schedule relationship');
+      console.error("Error deleting schedule relationship:", error);
+      alert("Failed to delete schedule relationship");
     } finally {
-      setDeletingRelationships(prev => {
+      setDeletingRelationships((prev) => {
         const newSet = new Set(prev);
         newSet.delete(relationshipId);
         return newSet;
@@ -366,11 +384,11 @@ export default function DQCheckDetail() {
     }
   }
 
-
-
   function getWarningLevelColor(warningLevel) {
-    if (warningLevel >= 100) return "bg-orange-100 text-orange-800 border-orange-200";
-    if (warningLevel >= 50) return "bg-yellow-100 text-yellow-800 border-yellow-200";
+    if (warningLevel >= 100)
+      return "bg-orange-100 text-orange-800 border-orange-200";
+    if (warningLevel >= 50)
+      return "bg-yellow-100 text-yellow-800 border-yellow-200";
     return "bg-green-100 text-green-800 border-green-200";
   }
 
@@ -396,8 +414,12 @@ export default function DQCheckDetail() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <ExclamationTriangleIcon className="h-24 w-24 text-red-400 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">DQ Check Not Found</h2>
-          <p className="text-gray-600 mb-4">The requested DQ check could not be found.</p>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            DQ Check Not Found
+          </h2>
+          <p className="text-gray-600 mb-4">
+            The requested DQ check could not be found.
+          </p>
           <Link
             href="/dqchecks"
             className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
@@ -413,7 +435,10 @@ export default function DQCheckDetail() {
     <>
       <Head>
         <title>{dqCheck.functionName} - DQ Check Details</title>
-        <meta name="description" content={`Details for DQ check: ${dqCheck.functionName}`} />
+        <meta
+          name="description"
+          content={`Details for DQ check: ${dqCheck.functionName}`}
+        />
       </Head>
 
       <div className="min-h-screen bg-gray-50 py-8">
@@ -448,14 +473,16 @@ export default function DQCheckDetail() {
                       <label className="block text-sm font-medium text-gray-500">
                         Function Name
                       </label>
-                      <p className="mt-1 text-sm text-gray-900">{dqCheck.functionName}</p>
+                      <p className="mt-1 text-sm text-gray-900">
+                        {dqCheck.functionName}
+                      </p>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-500">
                         Domain
                       </label>
                       <p className="mt-1 text-sm text-gray-900">
-                        {dqCheck.domainName || 'Unknown'}
+                        {dqCheck.domainName || "Unknown"}
                       </p>
                     </div>
                     <div>
@@ -463,7 +490,7 @@ export default function DQCheckDetail() {
                         Source System
                       </label>
                       <p className="mt-1 text-sm text-gray-900">
-                        {dqCheck.systemName || 'Unknown'}
+                        {dqCheck.systemName || "Unknown"}
                       </p>
                     </div>
                     <div>
@@ -477,7 +504,9 @@ export default function DQCheckDetail() {
                             min="1"
                             max="100"
                             value={warningLevelValue}
-                            onChange={(e) => setWarningLevelValue(e.target.value)}
+                            onChange={(e) =>
+                              setWarningLevelValue(e.target.value)
+                            }
                             className="w-20 px-2 py-1 border border-gray-300 rounded text-sm focus:ring-blue-500 focus:border-blue-500"
                             placeholder="1-100"
                           />
@@ -496,8 +525,13 @@ export default function DQCheckDetail() {
                         </div>
                       ) : (
                         <div className="mt-1 flex items-center space-x-2">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getWarningLevelColor(dqCheck.warningLevel)}`}>
-                            {getWarningLevelText(dqCheck.warningLevel)} ({dqCheck.warningLevel})
+                          <span
+                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getWarningLevelColor(
+                              dqCheck.warningLevel
+                            )}`}
+                          >
+                            {getWarningLevelText(dqCheck.warningLevel)} (
+                            {dqCheck.warningLevel})
                           </span>
                           <button
                             onClick={handleEditWarningLevel}
@@ -516,7 +550,9 @@ export default function DQCheckDetail() {
               {/* Right Column - Status */}
               <div className="space-y-6">
                 <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-6">
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">Status</h3>
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">
+                    Status
+                  </h3>
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-gray-600">Active</span>
@@ -527,11 +563,13 @@ export default function DQCheckDetail() {
                           onChange={handleToggleStatus}
                           className="sr-only peer"
                         />
-                        <div className={`relative w-11 h-6 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all ${
-                          dqCheck.isActive 
-                            ? "bg-green-600 peer-checked:after:translate-x-full peer-checked:after:border-white" 
-                            : "bg-red-600"
-                        }`}></div>
+                        <div
+                          className={`relative w-11 h-6 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all ${
+                            dqCheck.isActive
+                              ? "bg-green-600 peer-checked:after:translate-x-full peer-checked:after:border-white"
+                              : "bg-red-600"
+                          }`}
+                        ></div>
                       </label>
                     </div>
                     <div className="flex items-center justify-between">
@@ -543,23 +581,30 @@ export default function DQCheckDetail() {
                           onChange={handleToggleTestStatus}
                           className="sr-only peer"
                         />
-                        <div className={`relative w-11 h-6 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all ${
-                          dqCheck.isInTest 
-                            ? "bg-blue-600 peer-checked:after:translate-x-full peer-checked:after:border-white" 
-                            : "bg-gray-400"
-                        }`}></div>
+                        <div
+                          className={`relative w-11 h-6 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all ${
+                            dqCheck.isInTest
+                              ? "bg-blue-600 peer-checked:after:translate-x-full peer-checked:after:border-white"
+                              : "bg-gray-400"
+                          }`}
+                        ></div>
                       </label>
                     </div>
                     {editingLifetime ? (
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-1">
-                            <span className="text-sm text-gray-600">Lifetime</span>
+                            <span className="text-sm text-gray-600">
+                              Lifetime
+                            </span>
                             <div className="relative group">
                               <InformationCircleIcon className="h-4 w-4 text-gray-400 hover:text-gray-600 cursor-help" />
                               <div className="absolute right-0 top-6 hidden group-hover:block z-20 w-64">
                                 <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 shadow-lg">
-                                  This is the number of days after we last saw an issue to consider it 'spent'. If we see it again AFTER this period, we will treat it as a NEW issue.
+                                  This is the number of days after we last saw
+                                  an issue to consider it &apos;spent&apos;. If
+                                  we see it again AFTER this period, we will
+                                  treat it as a NEW issue.
                                   <div className="absolute -top-1 right-4 w-2 h-2 bg-gray-900 rotate-45"></div>
                                 </div>
                               </div>
@@ -596,12 +641,17 @@ export default function DQCheckDetail() {
                     ) : (
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-1">
-                          <span className="text-sm text-gray-600">Lifetime</span>
+                          <span className="text-sm text-gray-600">
+                            Lifetime
+                          </span>
                           <div className="relative group">
                             <InformationCircleIcon className="h-4 w-4 text-gray-400 hover:text-gray-600 cursor-help" />
                             <div className="absolute right-0 top-6 hidden group-hover:block z-20 w-64">
                               <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 shadow-lg">
-                                This is the number of days after we last saw an issue to consider it 'spent'. If we see it again AFTER this period, we will treat it as a NEW issue.
+                                This is the number of days after we last saw an
+                                issue to consider it &apos;spent&apos;. If we
+                                see it again AFTER this period, we will treat it
+                                as a NEW issue.
                                 <div className="absolute -top-1 right-4 w-2 h-2 bg-gray-900 rotate-45"></div>
                               </div>
                             </div>
@@ -609,7 +659,9 @@ export default function DQCheckDetail() {
                         </div>
                         <div className="flex items-center space-x-2">
                           <span className="text-sm text-gray-900">
-                            {dqCheck.lifetime ? `${dqCheck.lifetime} days` : 'Not set'}
+                            {dqCheck.lifetime
+                              ? `${dqCheck.lifetime} days`
+                              : "Not set"}
                           </span>
                           <button
                             onClick={handleEditLifetime}
@@ -674,7 +726,9 @@ export default function DQCheckDetail() {
                     </p>
                   ) : (
                     <p className="text-sm text-gray-500 italic">
-                      No description provided. Click the edit icon to add context about why this check is important and how to fix issues.
+                      No description provided. Click the edit icon to add
+                      context about why this check is important and how to fix
+                      issues.
                     </p>
                   )}
                 </div>
@@ -696,7 +750,9 @@ export default function DQCheckDetail() {
                         <div className="text-2xl font-bold text-blue-600">
                           {dqCheck.activeScheduleCount || 0}
                         </div>
-                        <div className="text-sm text-gray-600">Active Schedules</div>
+                        <div className="text-sm text-gray-600">
+                          Active Schedules
+                        </div>
                       </div>
                     </div>
                     <div className="text-center">
@@ -705,7 +761,9 @@ export default function DQCheckDetail() {
                         <div className="text-2xl font-bold text-gray-600">
                           {dqCheck.inactiveScheduleCount || 0}
                         </div>
-                        <div className="text-sm text-gray-600">Inactive Schedules</div>
+                        <div className="text-sm text-gray-600">
+                          Inactive Schedules
+                        </div>
                       </div>
                     </div>
                     <div className="text-center">
@@ -717,8 +775,12 @@ export default function DQCheckDetail() {
                         <div className="text-2xl font-bold text-green-600">
                           {dqCheck.resultCount || 0}
                         </div>
-                        <div className="text-sm text-gray-600">Total Results</div>
-                        <div className="text-xs text-gray-500 mt-1">Click for history</div>
+                        <div className="text-sm text-gray-600">
+                          Total Results
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          Click for history
+                        </div>
                       </button>
                     </div>
                   </div>
@@ -727,8 +789,10 @@ export default function DQCheckDetail() {
 
               {/* Add New Schedule Relationship */}
               <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Add Schedule</h3>
-                
+                <h3 className="text-lg font-medium text-gray-900 mb-4">
+                  Add Schedule
+                </h3>
+
                 {loadingSchedules ? (
                   <div className="text-center py-4">
                     <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto mb-2"></div>
@@ -736,7 +800,9 @@ export default function DQCheckDetail() {
                   </div>
                 ) : availableSchedules.length === 0 ? (
                   <div className="text-center py-4 bg-gray-50 rounded-lg">
-                    <p className="text-gray-500 text-sm">All active schedules are already assigned</p>
+                    <p className="text-gray-500 text-sm">
+                      All active schedules are already assigned
+                    </p>
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -780,27 +846,35 @@ export default function DQCheckDetail() {
               <h2 className="text-lg font-medium text-gray-900 mb-4">
                 Schedules ({scheduleRelationships.length})
               </h2>
-              
+
               {loadingSchedules ? (
                 <div className="text-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-                  <p className="text-gray-600">Loading schedule relationships...</p>
+                  <p className="text-gray-600">
+                    Loading schedule relationships...
+                  </p>
                 </div>
               ) : scheduleRelationships.length === 0 ? (
                 <div className="text-center py-6 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
                   <CalendarDaysIcon className="h-8 w-8 text-gray-300 mx-auto mb-2" />
-                  <p className="text-gray-500 text-sm">No schedule relationships configured</p>
-                  <p className="text-gray-400 text-xs mt-1">Add schedules using the panel above</p>
+                  <p className="text-gray-500 text-sm">
+                    No schedule relationships configured
+                  </p>
+                  <p className="text-gray-400 text-xs mt-1">
+                    Add schedules using the panel above
+                  </p>
                 </div>
               ) : (
                 <div className="space-y-3 max-h-96 overflow-y-auto">
                   {scheduleRelationships.map((relationship) => {
-                    const isDeleting = deletingRelationships.has(relationship.relationshipId);
+                    const isDeleting = deletingRelationships.has(
+                      relationship.relationshipId
+                    );
                     return (
-                      <div 
-                        key={relationship.relationshipId} 
+                      <div
+                        key={relationship.relationshipId}
                         className={`border border-gray-200 rounded-lg p-4 bg-white transition-all duration-300 ${
-                          isDeleting ? 'opacity-50 scale-95' : ''
+                          isDeleting ? "opacity-50 scale-95" : ""
                         }`}
                       >
                         <div className="flex items-center justify-between">
@@ -814,54 +888,75 @@ export default function DQCheckDetail() {
                               </Link>
                             </h5>
                             <div className="flex items-center space-x-4 mt-1 text-xs text-gray-500">
-                              <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                                relationship.schedule.isEnabled 
-                                  ? 'bg-green-100 text-green-700' 
-                                  : 'bg-red-100 text-red-700'
-                              }`}>
-                                Schedule: {relationship.schedule.isEnabled ? 'Active' : 'Inactive'}
+                              <span
+                                className={`px-2 py-0.5 rounded text-xs font-medium ${
+                                  relationship.schedule.isEnabled
+                                    ? "bg-green-100 text-green-700"
+                                    : "bg-red-100 text-red-700"
+                                }`}
+                              >
+                                Schedule:{" "}
+                                {relationship.schedule.isEnabled
+                                  ? "Active"
+                                  : "Inactive"}
                               </span>
                               {relationship.schedule.days && (
-                                <span>Days: {relationship.schedule.days.trim()}</span>
+                                <span>
+                                  Days: {relationship.schedule.days.trim()}
+                                </span>
                               )}
                               {relationship.schedule.times && (
-                                <span>Times: {relationship.schedule.times}</span>
+                                <span>
+                                  Times: {relationship.schedule.times}
+                                </span>
                               )}
                             </div>
                           </div>
-                          
+
                           <div className="flex items-center space-x-3">
                             <div className="flex items-center space-x-2">
-                              <span className={`text-xs font-medium ${
-                                relationship.isEnabled ? 'text-green-700' : 'text-red-700'
-                              }`}>
-                                {relationship.isEnabled ? 'Enabled' : 'Disabled'}
+                              <span
+                                className={`text-xs font-medium ${
+                                  relationship.isEnabled
+                                    ? "text-green-700"
+                                    : "text-red-700"
+                                }`}
+                              >
+                                {relationship.isEnabled
+                                  ? "Enabled"
+                                  : "Disabled"}
                               </span>
                               <label className="relative inline-flex items-center cursor-pointer">
                                 <input
                                   type="checkbox"
                                   className="sr-only peer"
                                   checked={relationship.isEnabled}
-                                  onChange={() => handleToggleScheduleRelationship(
-                                    relationship.relationshipId,
-                                    relationship.scheduleId,
-                                    relationship.isEnabled
-                                  )}
+                                  onChange={() =>
+                                    handleToggleScheduleRelationship(
+                                      relationship.relationshipId,
+                                      relationship.scheduleId,
+                                      relationship.isEnabled
+                                    )
+                                  }
                                 />
-                                <div className={`relative w-11 h-6 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all ${
-                                  relationship.isEnabled 
-                                    ? "bg-blue-600 peer-checked:after:translate-x-full peer-checked:after:border-white" 
-                                    : "bg-gray-400"
-                                }`}></div>
+                                <div
+                                  className={`relative w-11 h-6 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all ${
+                                    relationship.isEnabled
+                                      ? "bg-blue-600 peer-checked:after:translate-x-full peer-checked:after:border-white"
+                                      : "bg-gray-400"
+                                  }`}
+                                ></div>
                               </label>
                             </div>
-                            
+
                             <button
-                              onClick={() => handleDeleteScheduleRelationship(
-                                relationship.relationshipId,
-                                relationship.scheduleId,
-                                relationship.schedule.title
-                              )}
+                              onClick={() =>
+                                handleDeleteScheduleRelationship(
+                                  relationship.relationshipId,
+                                  relationship.scheduleId,
+                                  relationship.schedule.title
+                                )
+                              }
                               className="px-2 py-1 bg-red-100 text-red-700 hover:bg-red-200 rounded text-xs font-medium transition-colors flex items-center space-x-1"
                             >
                               <TrashIcon className="h-3 w-3" />
@@ -886,7 +981,6 @@ export default function DQCheckDetail() {
         dqCheckId={dqCheck?.id}
         dqCheckName={dqCheck?.functionName}
       />
-
-      </>
-    );
-  }
+    </>
+  );
+}

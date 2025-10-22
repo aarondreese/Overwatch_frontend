@@ -246,9 +246,7 @@ export default function Sourcesystem() {
               <ArrowLeftIcon className="h-5 w-5" />
               Back to Main Menu
             </Link>
-            <h1 className="text-3xl font-bold text-gray-800">
-              Source Systems
-            </h1>
+            <h1 className="text-3xl font-bold text-gray-800">Source Systems</h1>
           </div>
 
           {/* Source Systems Table */}
@@ -470,8 +468,8 @@ export default function Sourcesystem() {
                       No Domains Found
                     </h4>
                     <p className="text-gray-500 mb-6">
-                      This source system doesn't have any domains yet. Create
-                      your first domain to get started.
+                      This source system doesn&apos;t have any domains yet.
+                      Create your first domain to get started.
                     </p>
                     <button
                       className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded transition-colors duration-200 flex items-center gap-2 mx-auto"
@@ -493,9 +491,13 @@ export default function Sourcesystem() {
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
                         {selectedSystem.domains.map((domain) => (
-                          <tr 
-                            key={domain.id} 
-                            onClick={() => router.push(`/domain/${domain.id}?from=sourcesystem`)}
+                          <tr
+                            key={domain.id}
+                            onClick={() =>
+                              router.push(
+                                `/domain/${domain.id}?from=sourcesystem`
+                              )
+                            }
                             className="hover:bg-gray-50 cursor-pointer transition-colors"
                           >
                             <td className="px-6 py-4 whitespace-nowrap">
@@ -597,8 +599,8 @@ export default function Sourcesystem() {
                       No Synonyms Found
                     </h4>
                     <p className="text-gray-500 mb-6">
-                      This source system doesn't have any synonyms yet. Use the
-                      "Add Synonym" button above to get started.
+                      This source system doesn&apos;t have any synonyms yet. Use
+                      the &quot;Add Synonym&quot; button above to get started.
                     </p>
                   </div>
                 ) : (
@@ -662,8 +664,8 @@ export default function Sourcesystem() {
                                   {synonymSearchTerm ? (
                                     <>
                                       <div className="mb-2">
-                                        No synonyms found matching "
-                                        {synonymSearchTerm}"
+                                        No synonyms found matching &quot;
+                                        {synonymSearchTerm}&quot;
                                       </div>
                                       <button
                                         className="text-blue-600 hover:text-blue-800"
@@ -680,10 +682,7 @@ export default function Sourcesystem() {
                             </tr>
                           ) : (
                             filteredSynonyms.map((synonym) => (
-                              <tr
-                                key={synonym.id}
-                                className="hover:bg-gray-50"
-                              >
+                              <tr key={synonym.id} className="hover:bg-gray-50">
                                 <td className="px-6 py-4 whitespace-nowrap">
                                   <div className="flex items-center">
                                     <div className="h-8 w-8 rounded-full bg-purple-100 flex items-center justify-center mr-3">
@@ -715,11 +714,13 @@ export default function Sourcesystem() {
                                         {synonym.objectName}
                                       </div>
                                     )}
-                                    {synonym.objectSchema && synonym.objectDb && (
-                                      <div className="text-xs text-gray-500">
-                                        {synonym.objectSchema}.{synonym.objectDb}
-                                      </div>
-                                    )}
+                                    {synonym.objectSchema &&
+                                      synonym.objectDb && (
+                                        <div className="text-xs text-gray-500">
+                                          {synonym.objectSchema}.
+                                          {synonym.objectDb}
+                                        </div>
+                                      )}
                                   </div>
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap">

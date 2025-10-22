@@ -41,7 +41,10 @@ import {
   getDQEmailResources,
   updateHtmlTemplate,
 } from "@/lib/client/dqemails";
-import { listHtmlTemplates, getTemplateUsage } from "@/lib/client/htmlTemplates";
+import {
+  listHtmlTemplates,
+  getTemplateUsage,
+} from "@/lib/client/htmlTemplates";
 import { listMapViews } from "@/lib/client/mapViews";
 import { listDQChecks } from "@/lib/client/dqchecks";
 import { listStoredProcedures } from "@/lib/client/storedProcedures";
@@ -85,7 +88,7 @@ export default function DQEmailDetails() {
     htmlTemplates: [],
     mapViews: [],
     dqChecks: [],
-    storedProcedures: []
+    storedProcedures: [],
   });
   const [dropdownLoading, setDropdownLoading] = useState(false);
   const [templateUsage, setTemplateUsage] = useState(null);
@@ -109,13 +112,13 @@ export default function DQEmailDetails() {
 
   const checkTemplateUsage = async (templateName) => {
     if (!templateName) return;
-    
+
     setTemplateUsageLoading(true);
     try {
       const usage = await getTemplateUsage(templateName);
       setTemplateUsage(usage);
     } catch (err) {
-      console.error('Error checking template usage:', err);
+      console.error("Error checking template usage:", err);
       setTemplateUsage(null);
     } finally {
       setTemplateUsageLoading(false);
@@ -233,22 +236,23 @@ export default function DQEmailDetails() {
   const loadDropdownData = async () => {
     setDropdownLoading(true);
     try {
-      const [htmlTemplates, mapViews, dqChecks, storedProcedures] = await Promise.all([
-        listHtmlTemplates(),
-        listMapViews(),
-        listDQChecks(),
-        listStoredProcedures()
-      ]);
+      const [htmlTemplates, mapViews, dqChecks, storedProcedures] =
+        await Promise.all([
+          listHtmlTemplates(),
+          listMapViews(),
+          listDQChecks(),
+          listStoredProcedures(),
+        ]);
 
       setDropdownData({
         htmlTemplates,
         mapViews,
         dqChecks,
-        storedProcedures
+        storedProcedures,
       });
     } catch (err) {
-      console.error('Error loading dropdown data:', err);
-      setError('Failed to load dropdown options: ' + err.message);
+      console.error("Error loading dropdown data:", err);
+      setError("Failed to load dropdown options: " + err.message);
     } finally {
       setDropdownLoading(false);
     }
@@ -270,19 +274,21 @@ export default function DQEmailDetails() {
     }
 
     // Determine which mode to use: stored procedure or DQ check + map view
-    const useStoredProcedure = Boolean(dqEmail.runStoredProcedure && !dqEmail.dqCheckId && !dqEmail.mapView);
+    const useStoredProcedure = Boolean(
+      dqEmail.runStoredProcedure && !dqEmail.dqCheckId && !dqEmail.mapView
+    );
 
     setEditFormData({
-      htmlTemplateName: dqEmail.htmlTemplateName || '',
-      mapView: dqEmail.mapView || '',
-      dqCheckId: dqEmail.dqCheckId || '',
-      runStoredProcedure: dqEmail.runStoredProcedure || '',
+      htmlTemplateName: dqEmail.htmlTemplateName || "",
+      mapView: dqEmail.mapView || "",
+      dqCheckId: dqEmail.dqCheckId || "",
+      runStoredProcedure: dqEmail.runStoredProcedure || "",
       useStoredProcedure,
       frequencyNumber,
       frequencyUnit,
-      emailSubject: dqEmail.emailSubject || '',
-      description: dqEmail.description || '',
-      devEmailAddress: dqEmail.devEmailAddress || ''
+      emailSubject: dqEmail.emailSubject || "",
+      description: dqEmail.description || "",
+      devEmailAddress: dqEmail.devEmailAddress || "",
     });
 
     setIsEditing(true);
@@ -298,30 +304,34 @@ export default function DQEmailDetails() {
     try {
       setLoading(true);
       const response = await fetch(`/api/DQEmails/fix-hierarchy?id=${id}`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
       });
 
       const result = await response.json();
 
       if (result.success) {
-        console.log('Hierarchy fix result:', result);
+        console.log("Hierarchy fix result:", result);
         // Refresh the DQ email data to show updated hierarchy
         await fetchDQEmail();
         // Also refresh resources if needed
         if (dqEmail.htmlTemplateName || dqEmail.mapView) {
           fetchEmailResources(dqEmail.htmlTemplateName, dqEmail.mapView);
         }
-        
+
         // Show success message - you could replace this with a toast notification
-        alert(`Hierarchy updated successfully!\nPrevious: ${result.previousHierarchy || 'none'}\nNew: ${result.newHierarchy}`);
+        alert(
+          `Hierarchy updated successfully!\nPrevious: ${
+            result.previousHierarchy || "none"
+          }\nNew: ${result.newHierarchy}`
+        );
       } else {
         alert(`Error fixing hierarchy: ${result.message}`);
       }
     } catch (error) {
-      console.error('Error fixing hierarchy:', error);
+      console.error("Error fixing hierarchy:", error);
       alert(`Error fixing hierarchy: ${error.message}`);
     } finally {
       setLoading(false);
@@ -331,26 +341,34 @@ export default function DQEmailDetails() {
   const isFormValid = () => {
     if (editFormData.useStoredProcedure) {
       // Stored Procedure mode - requires stored procedure
-      return editFormData.runStoredProcedure && editFormData.runStoredProcedure.trim() !== '';
+      return (
+        editFormData.runStoredProcedure &&
+        editFormData.runStoredProcedure.trim() !== ""
+      );
     } else {
       // DQ Check + Map View mode - requires all three fields
-      return editFormData.htmlTemplateName && editFormData.htmlTemplateName.trim() !== '' &&
-             editFormData.dqCheckId &&
-             editFormData.mapView && editFormData.mapView.trim() !== '';
+      return (
+        editFormData.htmlTemplateName &&
+        editFormData.htmlTemplateName.trim() !== "" &&
+        editFormData.dqCheckId &&
+        editFormData.mapView &&
+        editFormData.mapView.trim() !== ""
+      );
     }
   };
 
   const handleSaveEditing = async () => {
     try {
       // Calculate total frequency in minutes
-      const frequencyInMinutes = editFormData.frequencyNumber * editFormData.frequencyUnit;
-      
+      const frequencyInMinutes =
+        editFormData.frequencyNumber * editFormData.frequencyUnit;
+
       const updates = {
         htmlTemplateName: editFormData.htmlTemplateName || null,
         frequencyInMinutes,
         emailSubject: editFormData.emailSubject || null,
         description: editFormData.description || null,
-        devEmailAddress: editFormData.devEmailAddress || null
+        devEmailAddress: editFormData.devEmailAddress || null,
       };
 
       // Add fields based on the selected mode
@@ -362,7 +380,9 @@ export default function DQEmailDetails() {
       } else {
         // DQ Check + Map View mode
         updates.mapView = editFormData.mapView || null;
-        updates.dqCheckId = editFormData.dqCheckId ? parseInt(editFormData.dqCheckId) : null;
+        updates.dqCheckId = editFormData.dqCheckId
+          ? parseInt(editFormData.dqCheckId)
+          : null;
         updates.runStoredProcedure = null;
       }
 
@@ -371,21 +391,21 @@ export default function DQEmailDetails() {
       setIsEditing(false);
       setEditFormData({});
     } catch (err) {
-      console.error('Error saving email settings:', err);
-      setError('Failed to save settings: ' + err.message);
+      console.error("Error saving email settings:", err);
+      setError("Failed to save settings: " + err.message);
     }
   };
 
   const handleFormChange = (field, value) => {
-    setEditFormData(prev => ({
+    setEditFormData((prev) => ({
       ...prev,
-      [field]: value
+      [field]: value,
     }));
-    
+
     // Check template usage when HTML template changes
-    if (field === 'htmlTemplateName' && value) {
+    if (field === "htmlTemplateName" && value) {
       checkTemplateUsage(value);
-    } else if (field === 'htmlTemplateName' && !value) {
+    } else if (field === "htmlTemplateName" && !value) {
       setTemplateUsage(null);
     }
   };
@@ -402,28 +422,28 @@ export default function DQEmailDetails() {
 
   const formatFrequency = (frequencyInMinutes) => {
     if (!frequencyInMinutes) return "Not configured";
-    
+
     const days = Math.floor(frequencyInMinutes / 1440);
     const hours = Math.floor((frequencyInMinutes % 1440) / 60);
     const minutes = frequencyInMinutes % 60;
-    
+
     const parts = [];
-    
+
     if (days > 0) {
-      parts.push(`${days} day${days !== 1 ? 's' : ''}`);
+      parts.push(`${days} day${days !== 1 ? "s" : ""}`);
     }
     if (hours > 0) {
-      parts.push(`${hours} hour${hours !== 1 ? 's' : ''}`);
+      parts.push(`${hours} hour${hours !== 1 ? "s" : ""}`);
     }
     if (minutes > 0) {
-      parts.push(`${minutes} minute${minutes !== 1 ? 's' : ''}`);
+      parts.push(`${minutes} minute${minutes !== 1 ? "s" : ""}`);
     }
-    
+
     if (parts.length === 0) {
       return "Not configured";
     }
-    
-    return `Every ${parts.join(', ')}`;
+
+    return `Every ${parts.join(", ")}`;
   };
 
   // Parse MapRules XML to extract field mappings
@@ -758,9 +778,12 @@ export default function DQEmailDetails() {
       const color = colors[index % colors.length];
       const originalPattern = directive.originalCase;
       const replacement = `<span class="inline-block px-2 py-1 rounded ${color.bg} ${color.text} ${color.border} border font-semibold">${originalPattern}</span>`;
-      
+
       // Use global replace to handle multiple occurrences
-      const regex = new RegExp(originalPattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+      const regex = new RegExp(
+        originalPattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+        "g"
+      );
       highlightedText = highlightedText.replace(regex, replacement);
     });
 
@@ -897,13 +920,15 @@ export default function DQEmailDetails() {
               </div>
             </div>
 
-            <div 
+            <div
               className="bg-white rounded-lg shadow-lg border border-gray-200 p-6 cursor-pointer hover:bg-gray-50 transition-colors"
               onClick={() => {
                 if (id) {
                   setShowSchedulesModal(true);
                 } else {
-                  console.error('Cannot open schedules modal: DQ Email ID is not available');
+                  console.error(
+                    "Cannot open schedules modal: DQ Email ID is not available"
+                  );
                 }
               }}
             >
@@ -1004,8 +1029,10 @@ export default function DQEmailDetails() {
                   {isEditing ? (
                     <input
                       type="text"
-                      value={editFormData.emailSubject || ''}
-                      onChange={(e) => handleFormChange('emailSubject', e.target.value)}
+                      value={editFormData.emailSubject || ""}
+                      onChange={(e) =>
+                        handleFormChange("emailSubject", e.target.value)
+                      }
                       className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       placeholder="Enter email subject"
                     />
@@ -1022,8 +1049,10 @@ export default function DQEmailDetails() {
                   </label>
                   {isEditing ? (
                     <textarea
-                      value={editFormData.description || ''}
-                      onChange={(e) => handleFormChange('description', e.target.value)}
+                      value={editFormData.description || ""}
+                      onChange={(e) =>
+                        handleFormChange("description", e.target.value)
+                      }
                       rows={3}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       placeholder="Enter description"
@@ -1042,8 +1071,10 @@ export default function DQEmailDetails() {
                   {isEditing ? (
                     <input
                       type="email"
-                      value={editFormData.devEmailAddress || ''}
-                      onChange={(e) => handleFormChange('devEmailAddress', e.target.value)}
+                      value={editFormData.devEmailAddress || ""}
+                      onChange={(e) =>
+                        handleFormChange("devEmailAddress", e.target.value)
+                      }
                       className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       placeholder="Enter development email address"
                     />
@@ -1064,13 +1095,23 @@ export default function DQEmailDetails() {
                         type="number"
                         min="0"
                         value={editFormData.frequencyNumber || 0}
-                        onChange={(e) => handleFormChange('frequencyNumber', parseInt(e.target.value) || 0)}
+                        onChange={(e) =>
+                          handleFormChange(
+                            "frequencyNumber",
+                            parseInt(e.target.value) || 0
+                          )
+                        }
                         className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         placeholder="Enter number"
                       />
                       <select
                         value={editFormData.frequencyUnit || 1}
-                        onChange={(e) => handleFormChange('frequencyUnit', parseInt(e.target.value))}
+                        onChange={(e) =>
+                          handleFormChange(
+                            "frequencyUnit",
+                            parseInt(e.target.value)
+                          )
+                        }
                         className="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       >
                         <option value={1}>Minutes</option>
@@ -1085,7 +1126,10 @@ export default function DQEmailDetails() {
                   )}
                   {isEditing && (
                     <p className="mt-1 text-sm text-gray-500">
-                      Total: Every {(editFormData.frequencyNumber || 0) * (editFormData.frequencyUnit || 1)} minutes
+                      Total: Every{" "}
+                      {(editFormData.frequencyNumber || 0) *
+                        (editFormData.frequencyUnit || 1)}{" "}
+                      minutes
                     </p>
                   )}
                 </div>
@@ -1121,41 +1165,58 @@ export default function DQEmailDetails() {
                           type="radio"
                           name="configType"
                           checked={!editFormData.useStoredProcedure}
-                          onChange={() => handleFormChange('useStoredProcedure', false)}
+                          onChange={() =>
+                            handleFormChange("useStoredProcedure", false)
+                          }
                           className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
                         />
-                        <span className="ml-2 text-sm text-gray-700">DQ Check + Map View</span>
+                        <span className="ml-2 text-sm text-gray-700">
+                          DQ Check + Map View
+                        </span>
                       </label>
                       <label className="flex items-center">
                         <input
                           type="radio"
                           name="configType"
                           checked={editFormData.useStoredProcedure || false}
-                          onChange={() => handleFormChange('useStoredProcedure', true)}
+                          onChange={() =>
+                            handleFormChange("useStoredProcedure", true)
+                          }
                           className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
                         />
-                        <span className="ml-2 text-sm text-gray-700">Stored Procedure</span>
+                        <span className="ml-2 text-sm text-gray-700">
+                          Stored Procedure
+                        </span>
                       </label>
                     </div>
                   </div>
                 )}
 
                 {/* Stored Procedure Mode */}
-                {(isEditing && editFormData.useStoredProcedure) || (!isEditing && dqEmail.runStoredProcedure && !dqEmail.dqCheckId && !dqEmail.mapView) ? (
+                {(isEditing && editFormData.useStoredProcedure) ||
+                (!isEditing &&
+                  dqEmail.runStoredProcedure &&
+                  !dqEmail.dqCheckId &&
+                  !dqEmail.mapView) ? (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Stored Procedure
                     </label>
                     {isEditing ? (
                       <select
-                        value={editFormData.runStoredProcedure || ''}
-                        onChange={(e) => handleFormChange('runStoredProcedure', e.target.value)}
+                        value={editFormData.runStoredProcedure || ""}
+                        onChange={(e) =>
+                          handleFormChange("runStoredProcedure", e.target.value)
+                        }
                         className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         disabled={dropdownLoading}
                       >
                         <option value="">Select a stored procedure</option>
                         {dropdownData.storedProcedures.map((proc) => (
-                          <option key={proc.fullProcedureName} value={proc.fullProcedureName}>
+                          <option
+                            key={proc.fullProcedureName}
+                            value={proc.fullProcedureName}
+                          >
                             {proc.fullProcedureName}
                           </option>
                         ))}
@@ -1176,12 +1237,17 @@ export default function DQEmailDetails() {
                       {isEditing ? (
                         <>
                           <select
-                            value={editFormData.htmlTemplateName || ''}
-                            onChange={(e) => handleFormChange('htmlTemplateName', e.target.value)}
+                            value={editFormData.htmlTemplateName || ""}
+                            onChange={(e) =>
+                              handleFormChange(
+                                "htmlTemplateName",
+                                e.target.value
+                              )
+                            }
                             className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                              templateUsage && templateUsage.totalUsageCount > 1 
-                                ? 'border-red-300 bg-red-50' 
-                                : 'border-gray-300'
+                              templateUsage && templateUsage.totalUsageCount > 1
+                                ? "border-red-300 bg-red-50"
+                                : "border-gray-300"
                             }`}
                             disabled={dropdownLoading}
                           >
@@ -1192,96 +1258,145 @@ export default function DQEmailDetails() {
                               </option>
                             ))}
                           </select>
-                          
+
                           {/* Shared Template Warning */}
-                          {templateUsage && templateUsage.totalUsageCount > 1 && (
-                            <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-md">
-                              <div className="flex items-start">
-                                <ExclamationTriangleIcon className="h-5 w-5 text-red-400 mt-0.5 mr-2" />
-                                <div>
-                                  <h4 className="text-sm font-medium text-red-800">
-                                    Shared Template Warning
-                                  </h4>
-                                  <p className="text-sm text-red-700 mt-1">
-                                    This template is used in {templateUsage.totalUsageCount} places. 
-                                    Changes will affect:
-                                  </p>
-                                  
-                                  {/* Email Usage */}
-                                  {templateUsage.emailUsageCount > 0 && (
-                                    <div className="mt-2">
-                                      <p className="text-xs font-medium text-red-800 mb-1">
-                                        DQ Emails ({templateUsage.emailUsageCount}):
-                                      </p>
-                                      <ul className="text-sm text-red-700 space-y-1">
-                                        {templateUsage.emails.slice(0, 3).map((email) => (
-                                          <li key={email.id} className="flex items-center">
-                                            <span className="w-2 h-2 bg-red-400 rounded-full mr-2"></span>
-                                            {email.emailName}
-                                            {!email.isActive && <span className="ml-2 text-xs text-gray-500">(Inactive)</span>}
-                                            {email.inDev && <span className="ml-2 text-xs text-blue-600">(Dev)</span>}
-                                          </li>
-                                        ))}
-                                        {templateUsage.emails.length > 3 && (
-                                          <li className="text-xs text-red-600">
-                                            ... and {templateUsage.emails.length - 3} more emails
-                                          </li>
-                                        )}
-                                      </ul>
-                                    </div>
-                                  )}
-                                  
-                                  {/* Stored Procedure Usage */}
-                                  {templateUsage.storedProcUsageCount > 0 && (
-                                    <div className="mt-2">
-                                      <p className="text-xs font-medium text-red-800 mb-1">
-                                        Stored Procedures ({templateUsage.storedProcUsageCount}):
-                                      </p>
-                                      <ul className="text-sm text-red-700 space-y-1">
-                                        {templateUsage.storedProcedures.slice(0, 3).map((proc) => (
-                                          <li key={proc.fullProcedureName} className="flex items-center">
-                                            <span className="w-2 h-2 bg-orange-400 rounded-full mr-2"></span>
-                                            <span className="font-mono text-xs">{proc.fullProcedureName}</span>
-                                          </li>
-                                        ))}
-                                        {templateUsage.storedProcedures.length > 3 && (
-                                          <li className="text-xs text-red-600">
-                                            ... and {templateUsage.storedProcedures.length - 3} more procedures
-                                          </li>
-                                        )}
-                                      </ul>
-                                    </div>
-                                  )}
+                          {templateUsage &&
+                            templateUsage.totalUsageCount > 1 && (
+                              <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-md">
+                                <div className="flex items-start">
+                                  <ExclamationTriangleIcon className="h-5 w-5 text-red-400 mt-0.5 mr-2" />
+                                  <div>
+                                    <h4 className="text-sm font-medium text-red-800">
+                                      Shared Template Warning
+                                    </h4>
+                                    <p className="text-sm text-red-700 mt-1">
+                                      This template is used in{" "}
+                                      {templateUsage.totalUsageCount} places.
+                                      Changes will affect:
+                                    </p>
+
+                                    {/* Email Usage */}
+                                    {templateUsage.emailUsageCount > 0 && (
+                                      <div className="mt-2">
+                                        <p className="text-xs font-medium text-red-800 mb-1">
+                                          DQ Emails (
+                                          {templateUsage.emailUsageCount}):
+                                        </p>
+                                        <ul className="text-sm text-red-700 space-y-1">
+                                          {templateUsage.emails
+                                            .slice(0, 3)
+                                            .map((email) => (
+                                              <li
+                                                key={email.id}
+                                                className="flex items-center"
+                                              >
+                                                <span className="w-2 h-2 bg-red-400 rounded-full mr-2"></span>
+                                                {email.emailName}
+                                                {!email.isActive && (
+                                                  <span className="ml-2 text-xs text-gray-500">
+                                                    (Inactive)
+                                                  </span>
+                                                )}
+                                                {email.inDev && (
+                                                  <span className="ml-2 text-xs text-blue-600">
+                                                    (Dev)
+                                                  </span>
+                                                )}
+                                              </li>
+                                            ))}
+                                          {templateUsage.emails.length > 3 && (
+                                            <li className="text-xs text-red-600">
+                                              ... and{" "}
+                                              {templateUsage.emails.length - 3}{" "}
+                                              more emails
+                                            </li>
+                                          )}
+                                        </ul>
+                                      </div>
+                                    )}
+
+                                    {/* Stored Procedure Usage */}
+                                    {templateUsage.storedProcUsageCount > 0 && (
+                                      <div className="mt-2">
+                                        <p className="text-xs font-medium text-red-800 mb-1">
+                                          Stored Procedures (
+                                          {templateUsage.storedProcUsageCount}):
+                                        </p>
+                                        <ul className="text-sm text-red-700 space-y-1">
+                                          {templateUsage.storedProcedures
+                                            .slice(0, 3)
+                                            .map((proc) => (
+                                              <li
+                                                key={proc.fullProcedureName}
+                                                className="flex items-center"
+                                              >
+                                                <span className="w-2 h-2 bg-orange-400 rounded-full mr-2"></span>
+                                                <span className="font-mono text-xs">
+                                                  {proc.fullProcedureName}
+                                                </span>
+                                              </li>
+                                            ))}
+                                          {templateUsage.storedProcedures
+                                            .length > 3 && (
+                                            <li className="text-xs text-red-600">
+                                              ... and{" "}
+                                              {templateUsage.storedProcedures
+                                                .length - 3}{" "}
+                                              more procedures
+                                            </li>
+                                          )}
+                                        </ul>
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          )}
+                            )}
                         </>
                       ) : (
                         <>
-                          <div className={`p-3 rounded-md text-sm text-gray-900 ${
-                            templateUsage && templateUsage.totalUsageCount > 1 
-                              ? 'bg-red-50 border border-red-200' 
-                              : 'bg-gray-50'
-                          }`}>
-                            {dqEmail.htmlTemplateName || "No template specified"}
+                          <div
+                            className={`p-3 rounded-md text-sm text-gray-900 ${
+                              templateUsage && templateUsage.totalUsageCount > 1
+                                ? "bg-red-50 border border-red-200"
+                                : "bg-gray-50"
+                            }`}
+                          >
+                            {dqEmail.htmlTemplateName ||
+                              "No template specified"}
                           </div>
-                          
+
                           {/* Shared Template Warning - View Mode */}
-                          {templateUsage && templateUsage.totalUsageCount > 1 && (
-                            <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-md">
-                              <div className="flex items-center text-sm text-red-700">
-                                <ExclamationTriangleIcon className="h-4 w-4 text-red-400 mr-1" />
-                                This template is used in {templateUsage.totalUsageCount} places
-                                {templateUsage.emailUsageCount > 1 && (
-                                  <span className="ml-1">({templateUsage.emailUsageCount - 1} other email{templateUsage.emailUsageCount > 2 ? 's' : ''})</span>
-                                )}
-                                {templateUsage.storedProcUsageCount > 0 && (
-                                  <span className="ml-1">({templateUsage.storedProcUsageCount} procedure{templateUsage.storedProcUsageCount > 1 ? 's' : ''})</span>
-                                )}
+                          {templateUsage &&
+                            templateUsage.totalUsageCount > 1 && (
+                              <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-md">
+                                <div className="flex items-center text-sm text-red-700">
+                                  <ExclamationTriangleIcon className="h-4 w-4 text-red-400 mr-1" />
+                                  This template is used in{" "}
+                                  {templateUsage.totalUsageCount} places
+                                  {templateUsage.emailUsageCount > 1 && (
+                                    <span className="ml-1">
+                                      ({templateUsage.emailUsageCount - 1} other
+                                      email
+                                      {templateUsage.emailUsageCount > 2
+                                        ? "s"
+                                        : ""}
+                                      )
+                                    </span>
+                                  )}
+                                  {templateUsage.storedProcUsageCount > 0 && (
+                                    <span className="ml-1">
+                                      ({templateUsage.storedProcUsageCount}{" "}
+                                      procedure
+                                      {templateUsage.storedProcUsageCount > 1
+                                        ? "s"
+                                        : ""}
+                                      )
+                                    </span>
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          )}
+                            )}
                         </>
                       )}
                     </div>
@@ -1292,15 +1407,18 @@ export default function DQEmailDetails() {
                       </label>
                       {isEditing ? (
                         <select
-                          value={editFormData.dqCheckId || ''}
-                          onChange={(e) => handleFormChange('dqCheckId', e.target.value)}
+                          value={editFormData.dqCheckId || ""}
+                          onChange={(e) =>
+                            handleFormChange("dqCheckId", e.target.value)
+                          }
                           className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                           disabled={dropdownLoading}
                         >
                           <option value="">Select a DQ check</option>
                           {dropdownData.dqChecks.map((check) => (
                             <option key={check.id} value={check.id}>
-                              {check.functionName} ({check.domainName || 'No Domain'})
+                              {check.functionName} (
+                              {check.domainName || "No Domain"})
                             </option>
                           ))}
                         </select>
@@ -1326,14 +1444,19 @@ export default function DQEmailDetails() {
                       </label>
                       {isEditing ? (
                         <select
-                          value={editFormData.mapView || ''}
-                          onChange={(e) => handleFormChange('mapView', e.target.value)}
+                          value={editFormData.mapView || ""}
+                          onChange={(e) =>
+                            handleFormChange("mapView", e.target.value)
+                          }
                           className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                           disabled={dropdownLoading}
                         >
                           <option value="">Select a map view</option>
                           {dropdownData.mapViews.map((view) => (
-                            <option key={view.fullViewName} value={view.viewName}>
+                            <option
+                              key={view.fullViewName}
+                              value={view.viewName}
+                            >
                               {view.fullViewName}
                             </option>
                           ))}
@@ -1613,7 +1736,7 @@ export default function DQEmailDetails() {
                                         <div
                                           className={`inline-block px-2 py-1 rounded text-xs font-mono ${color.bg} ${color.text} ${color.border} border mb-2`}
                                         >
-                                          ^For="{directive.full}"
+                                          ^For=&quot;{directive.full}&quot;
                                         </div>
                                         <div className="text-xs text-gray-600">
                                           <div>
@@ -1649,28 +1772,32 @@ export default function DQEmailDetails() {
                               let collection = fd.collection || "";
                               collection = collection.trim();
                               if (!collection) return;
-                              const parts = collection.split('.');
+                              const parts = collection.split(".");
                               const last = parts[parts.length - 1];
                               const val = last.trim();
-                              if (val && !normalized.includes(val)) normalized.push(val);
+                              if (val && !normalized.includes(val))
+                                normalized.push(val);
                             });
                             const templateHierarchyOrder = normalized;
-                            
+
                             const collections = Array.from(
                               new Set(mappings.map((m) => m.collection))
                             );
 
                             // Check if database hierarchy matches template hierarchy
-                            const templateHierarchyString = templateHierarchyOrder.join('>');
-                            const databaseHierarchy = dqEmail.hierarchy || '';
-                            const hierarchyMismatch = templateHierarchyString !== databaseHierarchy;
+                            const templateHierarchyString =
+                              templateHierarchyOrder.join(">");
+                            const databaseHierarchy = dqEmail.hierarchy || "";
+                            const hierarchyMismatch =
+                              templateHierarchyString !== databaseHierarchy;
 
                             // Use template-based hierarchy order instead of database field
-                            const orderedCollections = templateHierarchyOrder.length > 0
-                              ? templateHierarchyOrder.filter((h) =>
-                                  collections.includes(h)
-                                )
-                              : collections;
+                            const orderedCollections =
+                              templateHierarchyOrder.length > 0
+                                ? templateHierarchyOrder.filter((h) =>
+                                    collections.includes(h)
+                                  )
+                                : collections;
 
                             // Create mapping between collections and ^For directives
                             const getCollectionColor = (
@@ -1828,18 +1955,22 @@ export default function DQEmailDetails() {
                                         onClick={handleFixHierarchy}
                                         disabled={loading}
                                         className={`px-3 py-1 text-xs rounded-md flex items-center space-x-1 ${
-                                          hierarchyMismatch 
-                                            ? 'bg-orange-500 hover:bg-orange-600 text-white' 
-                                            : 'bg-blue-500 hover:bg-blue-600 text-white'
+                                          hierarchyMismatch
+                                            ? "bg-orange-500 hover:bg-orange-600 text-white"
+                                            : "bg-blue-500 hover:bg-blue-600 text-white"
                                         } disabled:bg-gray-400`}
                                         title={
-                                          hierarchyMismatch 
+                                          hierarchyMismatch
                                             ? `Database: "${databaseHierarchy}" → Template: "${templateHierarchyString}"`
                                             : "Hierarchy is up to date"
                                         }
                                       >
                                         <ArrowRightIcon className="h-3 w-3" />
-                                        <span>{hierarchyMismatch ? 'Fix Hierarchy' : 'Refresh Hierarchy'}</span>
+                                        <span>
+                                          {hierarchyMismatch
+                                            ? "Fix Hierarchy"
+                                            : "Refresh Hierarchy"}
+                                        </span>
                                       </button>
                                     </div>
                                     <div className="flex items-center space-x-2 text-sm">
@@ -1853,7 +1984,8 @@ export default function DQEmailDetails() {
                                               {collection}
                                             </span>
                                             {index <
-                                              templateHierarchyOrder.length - 1 && (
+                                              templateHierarchyOrder.length -
+                                                1 && (
                                               <ArrowRightIcon className="h-4 w-4 text-gray-400 mx-2" />
                                             )}
                                           </div>
@@ -1932,10 +2064,11 @@ export default function DQEmailDetails() {
                         ⚠️ Editing Shared Template
                       </h3>
                       <p className="text-sm text-red-700 mt-1">
-                        <strong>Warning:</strong> This template is used in {templateUsage.totalUsageCount} places. 
-                        Any changes you make will immediately affect:
+                        <strong>Warning:</strong> This template is used in{" "}
+                        {templateUsage.totalUsageCount} places. Any changes you
+                        make will immediately affect:
                       </p>
-                      
+
                       <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-4">
                         {/* Email Usage */}
                         {templateUsage.emailUsageCount > 0 && (
@@ -1946,37 +2079,23 @@ export default function DQEmailDetails() {
                             <div className="max-h-32 overflow-y-auto">
                               <ul className="text-sm text-red-700 space-y-1">
                                 {templateUsage.emails.map((email) => (
-                                  <li key={email.id} className="flex items-center">
+                                  <li
+                                    key={email.id}
+                                    className="flex items-center"
+                                  >
                                     <span className="w-2 h-2 bg-red-500 rounded-full mr-2"></span>
-                                    <span className="font-medium">{email.emailName}</span>
-                                    {!email.isActive && <span className="ml-2 text-xs text-gray-500">(Inactive)</span>}
-                                    {email.inDev && <span className="ml-2 text-xs text-blue-600">(Dev)</span>}
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          </div>
-                        )}
-                        
-                        {/* Stored Procedure Usage */}
-                        {templateUsage.storedProcUsageCount > 0 && (
-                          <div>
-                            <h4 className="text-sm font-semibold text-red-800 mb-2">
-                              Stored Procedures ({templateUsage.storedProcUsageCount}):
-                            </h4>
-                            <div className="max-h-32 overflow-y-auto">
-                              <ul className="text-sm text-red-700 space-y-1">
-                                {templateUsage.storedProcedures.map((proc) => (
-                                  <li key={proc.fullProcedureName} className="block">
-                                    <div className="flex items-center mb-1">
-                                      <span className="w-2 h-2 bg-orange-500 rounded-full mr-2"></span>
-                                      <span className="font-mono text-xs font-medium">{proc.fullProcedureName}</span>
-                                    </div>
-                                    {proc.context && proc.context.length > 0 && (
-                                      <div className="ml-4 text-xs text-red-600 bg-red-100 p-1 rounded font-mono">
-                                        Line {proc.context[0].lineNumber}: {proc.context[0].matchedLine.substring(0, 60)}
-                                        {proc.context[0].matchedLine.length > 60 && '...'}
-                                      </div>
+                                    <span className="font-medium">
+                                      {email.emailName}
+                                    </span>
+                                    {!email.isActive && (
+                                      <span className="ml-2 text-xs text-gray-500">
+                                        (Inactive)
+                                      </span>
+                                    )}
+                                    {email.inDev && (
+                                      <span className="ml-2 text-xs text-blue-600">
+                                        (Dev)
+                                      </span>
                                     )}
                                   </li>
                                 ))}
@@ -1984,17 +2103,63 @@ export default function DQEmailDetails() {
                             </div>
                           </div>
                         )}
+
+                        {/* Stored Procedure Usage */}
+                        {templateUsage.storedProcUsageCount > 0 && (
+                          <div>
+                            <h4 className="text-sm font-semibold text-red-800 mb-2">
+                              Stored Procedures (
+                              {templateUsage.storedProcUsageCount}):
+                            </h4>
+                            <div className="max-h-32 overflow-y-auto">
+                              <ul className="text-sm text-red-700 space-y-1">
+                                {templateUsage.storedProcedures.map((proc) => (
+                                  <li
+                                    key={proc.fullProcedureName}
+                                    className="block"
+                                  >
+                                    <div className="flex items-center mb-1">
+                                      <span className="w-2 h-2 bg-orange-500 rounded-full mr-2"></span>
+                                      <span className="font-mono text-xs font-medium">
+                                        {proc.fullProcedureName}
+                                      </span>
+                                    </div>
+                                    {proc.context &&
+                                      proc.context.length > 0 && (
+                                        <div className="ml-4 text-xs text-red-600 bg-red-100 p-1 rounded font-mono">
+                                          Line {proc.context[0].lineNumber}:{" "}
+                                          {proc.context[0].matchedLine.substring(
+                                            0,
+                                            60
+                                          )}
+                                          {proc.context[0].matchedLine.length >
+                                            60 && "..."}
+                                        </div>
+                                      )}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                      
+
                       <p className="text-sm text-red-800 mt-3 font-medium">
-                        Consider creating a copy of this template if you need email-specific changes.
+                        Consider creating a copy of this template if you need
+                        email-specific changes.
                       </p>
                     </div>
                   </div>
                 </div>
               )}
-              
-              <div className={`${templateUsage && templateUsage.totalUsageCount > 1 ? 'border-2 border-red-300 rounded-lg p-1' : ''}`}>
+
+              <div
+                className={`${
+                  templateUsage && templateUsage.totalUsageCount > 1
+                    ? "border-2 border-red-300 rounded-lg p-1"
+                    : ""
+                }`}
+              >
                 <TemplateXMLEditor
                   dqEmail={dqEmail}
                   templateText={resources.template.text}
@@ -2019,12 +2184,22 @@ export default function DQEmailDetails() {
                     <ExclamationTriangleIcon className="h-5 w-5 text-yellow-500 mr-2" />
                     <div>
                       <span>
-                        <strong>Note:</strong> This template is used in {templateUsage.totalUsageCount} places
+                        <strong>Note:</strong> This template is used in{" "}
+                        {templateUsage.totalUsageCount} places
                         {templateUsage.emailUsageCount > 1 && (
-                          <span> (including {templateUsage.emailUsageCount - 1} other email{templateUsage.emailUsageCount > 2 ? 's' : ''})</span>
+                          <span>
+                            {" "}
+                            (including {templateUsage.emailUsageCount - 1} other
+                            email{templateUsage.emailUsageCount > 2 ? "s" : ""})
+                          </span>
                         )}
                         {templateUsage.storedProcUsageCount > 0 && (
-                          <span> and {templateUsage.storedProcUsageCount} stored procedure{templateUsage.storedProcUsageCount > 1 ? 's' : ''}</span>
+                          <span>
+                            {" "}
+                            and {templateUsage.storedProcUsageCount} stored
+                            procedure
+                            {templateUsage.storedProcUsageCount > 1 ? "s" : ""}
+                          </span>
                         )}
                         . Editing will affect all references.
                       </span>
@@ -2032,18 +2207,20 @@ export default function DQEmailDetails() {
                   </div>
                 </div>
               )}
-              
+
               <div className="flex justify-end space-x-4">
                 <button
                   onClick={() => setShowEditor(true)}
                   className={`px-6 py-2 text-white rounded-md hover:bg-purple-700 transition-colors flex items-center ${
-                    templateUsage && templateUsage.totalUsageCount > 1 
-                      ? 'bg-red-600 hover:bg-red-700 border-2 border-red-300' 
-                      : 'bg-purple-600'
+                    templateUsage && templateUsage.totalUsageCount > 1
+                      ? "bg-red-600 hover:bg-red-700 border-2 border-red-300"
+                      : "bg-purple-600"
                   }`}
                 >
                   <PencilSquareIcon className="h-4 w-4 mr-2" />
-                  {templateUsage && templateUsage.totalUsageCount > 1 ? 'Edit Shared Template' : 'Edit Template & Mapping'}
+                  {templateUsage && templateUsage.totalUsageCount > 1
+                    ? "Edit Shared Template"
+                    : "Edit Template & Mapping"}
                 </button>
               </div>
             </div>
@@ -2060,7 +2237,6 @@ export default function DQEmailDetails() {
         emailIsActive={dqEmail?.isActive}
         onScheduleUpdate={handleScheduleUpdate}
       />
-
     </>
   );
 }

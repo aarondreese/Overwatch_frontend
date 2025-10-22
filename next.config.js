@@ -20,10 +20,19 @@ const nextConfig = {
         path: false,
         buffer: false,
         events: false,
-        'node:events': false,
+        "node:events": false,
+        "node:stream": false,
+        "node:url": false,
         url: false,
         querystring: false,
       };
+
+      // Exclude mssql and tedious from client bundle
+      config.externals = config.externals || [];
+      config.externals.push({
+        mssql: "commonjs mssql",
+        tedious: "commonjs tedious",
+      });
     }
     return config;
   },

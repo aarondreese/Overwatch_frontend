@@ -2,9 +2,9 @@ import { executeQuery } from "@/lib/db";
 
 export default async function handler(req, res) {
   const { method } = req;
-  const { dqEmailId } = req.query;
+  const { id } = req.query;
 
-  if (!dqEmailId) {
+  if (!id) {
     return res.status(400).json({
       success: false,
       message: "DQ Email ID is required",
@@ -37,7 +37,7 @@ export default async function handler(req, res) {
 }
 
 async function handleGet(req, res) {
-  const { dqEmailId } = req.query;
+  const { id } = req.query;
 
   try {
     // Get all schedules associated with this DQ email using ShowMyShedule view
@@ -60,7 +60,7 @@ async function handleGet(req, res) {
       ORDER BY sms.Title
     `;
 
-    const result = await executeQuery(query, { dqEmailId: parseInt(dqEmailId) });
+    const result = await executeQuery(query, { dqEmailId: parseInt(id) });
 
     const schedules = result.recordset.map((schedule) => ({
       scheduleId: schedule.scheduleId,
@@ -95,7 +95,7 @@ async function handleGet(req, res) {
 }
 
 async function handlePut(req, res) {
-  const { dqEmailId } = req.query;
+  const { id } = req.query;
   const { emailScheduleId, enabled } = req.body;
 
   if (!emailScheduleId || typeof enabled !== 'boolean') {
@@ -105,7 +105,7 @@ async function handlePut(req, res) {
     });
   }
 
-  console.log("PUT request for DQEmail Schedule:", { dqEmailId, emailScheduleId, enabled });
+  console.log("PUT request for DQEmail Schedule:", { dqEmailId: id, emailScheduleId, enabled });
 
   try {
     // Update the DQEmail_Schedule record
@@ -117,7 +117,7 @@ async function handlePut(req, res) {
 
     const result = await executeQuery(updateQuery, {
       emailScheduleId: parseInt(emailScheduleId),
-      dqEmailId: parseInt(dqEmailId),
+      dqEmailId: parseInt(id),
       enabled: enabled ? 1 : 0,
     });
 
@@ -147,7 +147,7 @@ async function handlePut(req, res) {
 }
 
 async function handleDelete(req, res) {
-  const { dqEmailId } = req.query;
+  const { id } = req.query;
   const { emailScheduleId } = req.body;
 
   if (!emailScheduleId) {
@@ -157,7 +157,7 @@ async function handleDelete(req, res) {
     });
   }
 
-  console.log("DELETE request for DQEmail Schedule:", { dqEmailId, emailScheduleId });
+  console.log("DELETE request for DQEmail Schedule:", { dqEmailId: id, emailScheduleId });
 
   try {
     // Delete the DQEmail_Schedule record
@@ -168,7 +168,7 @@ async function handleDelete(req, res) {
 
     const result = await executeQuery(deleteQuery, {
       emailScheduleId: parseInt(emailScheduleId),
-      dqEmailId: parseInt(dqEmailId),
+      dqEmailId: parseInt(id),
     });
 
     if (result.rowsAffected && result.rowsAffected[0] > 0) {
@@ -196,7 +196,7 @@ async function handleDelete(req, res) {
 }
 
 async function handlePost(req, res) {
-  const { dqEmailId } = req.query;
+  const { id } = req.query;
   const { scheduleId } = req.body;
 
   if (!scheduleId) {
@@ -206,7 +206,7 @@ async function handlePost(req, res) {
     });
   }
 
-  console.log("POST request to add DQEmail Schedule:", { dqEmailId, scheduleId });
+  console.log("POST request to add DQEmail Schedule:", { dqEmailId: id, scheduleId });
 
   try {
     // Insert new DQEmail_Schedule record
@@ -216,7 +216,7 @@ async function handlePost(req, res) {
     `;
 
     const result = await executeQuery(insertQuery, {
-      dqEmailId: parseInt(dqEmailId),
+      dqEmailId: parseInt(id),
       scheduleId: parseInt(scheduleId),
     });
 

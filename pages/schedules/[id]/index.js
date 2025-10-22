@@ -2,33 +2,36 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
 import Link from "next/link";
-import { getScheduleByID, updateSchedule, getScheduleDays, updateScheduleDays, getScheduleHours, updateScheduleHours } from "@/lib/client/schedules";
-
 import {
-  ArrowLeftIcon,
-  CheckIcon,
-  XMarkIcon,
-} from "@heroicons/react/24/solid";
+  getScheduleByID,
+  updateSchedule,
+  getScheduleDays,
+  updateScheduleDays,
+  getScheduleHours,
+  updateScheduleHours,
+} from "@/lib/client/schedules";
+
+import { ArrowLeftIcon, CheckIcon, XMarkIcon } from "@heroicons/react/24/solid";
 
 export default function ScheduleDetail() {
   const router = useRouter();
   const { id } = router.query;
-  
+
   const [schedule, setSchedule] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  
+
   // Schedule editing state
   const [title, setTitle] = useState("");
   const [activeFrom, setActiveFrom] = useState("");
   const [activeTo, setActiveTo] = useState("");
   const [isEnabled, setIsEnabled] = useState(true);
-  
+
   // Days and hours state
   const [selectedDays, setSelectedDays] = useState([]);
   const [selectedHours, setSelectedHours] = useState([]);
   const [includeBankHols, setIncludeBankHols] = useState(false);
-  
+
   // Original state for change tracking
   const [originalTitle, setOriginalTitle] = useState("");
   const [originalActiveFrom, setOriginalActiveFrom] = useState("");
@@ -59,48 +62,53 @@ export default function ScheduleDetail() {
   async function fetchSchedule() {
     try {
       setLoading(true);
-      
+
       // Fetch schedule, days, and hours data in parallel
-      const [scheduleData, scheduleDaysData, scheduleHoursData] = await Promise.all([
-        getScheduleByID(id),
-        getScheduleDays(id),
-        getScheduleHours(id)
-      ]);
-      
+      const [scheduleData, scheduleDaysData, scheduleHoursData] =
+        await Promise.all([
+          getScheduleByID(id),
+          getScheduleDays(id),
+          getScheduleHours(id),
+        ]);
+
       setSchedule(scheduleData);
-      
+
       // Set form data
       const titleValue = scheduleData.title || "";
-      const activeFromValue = scheduleData.activeFrom ? scheduleData.activeFrom.substring(0, 10) : "";
-      const activeToValue = scheduleData.activeTo ? scheduleData.activeTo.substring(0, 10) : "";
+      const activeFromValue = scheduleData.activeFrom
+        ? scheduleData.activeFrom.substring(0, 10)
+        : "";
+      const activeToValue = scheduleData.activeTo
+        ? scheduleData.activeTo.substring(0, 10)
+        : "";
       const isEnabledValue = scheduleData.isEnabled;
       const includeBankHolsValue = scheduleDaysData.includeBankHols || false;
-      
+
       setTitle(titleValue);
       setActiveFrom(activeFromValue);
       setActiveTo(activeToValue);
       setIsEnabled(isEnabledValue);
       setIncludeBankHols(includeBankHolsValue);
-      
+
       // Store original values
       setOriginalTitle(titleValue);
       setOriginalActiveFrom(activeFromValue);
       setOriginalActiveTo(activeToValue);
       setOriginalIsEnabled(isEnabledValue);
       setOriginalIncludeBankHols(includeBankHolsValue);
-      
+
       // Set days from ScheduleDay table
       const activeDays = [];
       const dayMapping = {
         monday: "Mo",
-        tuesday: "Tu", 
+        tuesday: "Tu",
         wednesday: "We",
         thursday: "Th",
         friday: "Fr",
         saturday: "Sa",
-        sunday: "Su"
+        sunday: "Su",
       };
-      
+
       Object.entries(dayMapping).forEach(([dayName, dayCode]) => {
         if (scheduleDaysData[dayName]) {
           activeDays.push(dayCode);
@@ -108,7 +116,7 @@ export default function ScheduleDetail() {
       });
       setSelectedDays(activeDays);
       setOriginalDays([...activeDays]);
-      
+
       // Set hours from ScheduleHour table
       const activeHours = [];
       scheduleHoursData.hours.forEach((isActive, hour) => {
@@ -118,7 +126,6 @@ export default function ScheduleDetail() {
       });
       setSelectedHours(activeHours);
       setOriginalHours([...activeHours]);
-      
     } catch (error) {
       console.error("Error fetching schedule:", error);
       alert("Failed to load schedule details.");
@@ -128,19 +135,21 @@ export default function ScheduleDetail() {
   }
 
   function toggleDay(dayCode) {
-    setSelectedDays(prev => 
+    setSelectedDays((prev) =>
       prev.includes(dayCode)
-        ? prev.filter(d => d !== dayCode)
-        : [...prev, dayCode].sort((a, b) => 
-            days.findIndex(d => d.code === a) - days.findIndex(d => d.code === b)
+        ? prev.filter((d) => d !== dayCode)
+        : [...prev, dayCode].sort(
+            (a, b) =>
+              days.findIndex((d) => d.code === a) -
+              days.findIndex((d) => d.code === b)
           )
     );
   }
 
   function toggleHour(hour) {
-    setSelectedHours(prev =>
+    setSelectedHours((prev) =>
       prev.includes(hour)
-        ? prev.filter(h => h !== hour)
+        ? prev.filter((h) => h !== hour)
         : [...prev, hour].sort((a, b) => a - b)
     );
   }
@@ -160,17 +169,17 @@ export default function ScheduleDetail() {
       activeTo !== originalActiveTo ||
       isEnabled !== originalIsEnabled ||
       includeBankHols !== originalIncludeBankHols ||
-      JSON.stringify(selectedDays.sort()) !== JSON.stringify(originalDays.sort()) ||
-      JSON.stringify(selectedHours.sort()) !== JSON.stringify(originalHours.sort())
+      JSON.stringify(selectedDays.sort()) !==
+        JSON.stringify(originalDays.sort()) ||
+      JSON.stringify(selectedHours.sort()) !==
+        JSON.stringify(originalHours.sort())
     );
   }
 
   // Check if the schedule is valid for saving
   function isValidSchedule() {
     return (
-      title.trim() !== "" &&
-      selectedDays.length > 0 &&
-      selectedHours.length > 0
+      title.trim() !== "" && selectedDays.length > 0 && selectedHours.length > 0
     );
   }
 
@@ -183,7 +192,7 @@ export default function ScheduleDetail() {
   function getDayColorState(dayCode) {
     const wasOriginallyActive = originalDays.includes(dayCode);
     const isCurrentlySelected = selectedDays.includes(dayCode);
-    
+
     if (wasOriginallyActive && isCurrentlySelected) {
       return "blue"; // Original active, still active
     } else if (!wasOriginallyActive && isCurrentlySelected) {
@@ -199,7 +208,7 @@ export default function ScheduleDetail() {
   function getHourColorState(hour) {
     const wasOriginallyActive = originalHours.includes(hour);
     const isCurrentlySelected = selectedHours.includes(hour);
-    
+
     if (wasOriginallyActive && isCurrentlySelected) {
       return "blue"; // Original active, still active
     } else if (!wasOriginallyActive && isCurrentlySelected) {
@@ -214,8 +223,9 @@ export default function ScheduleDetail() {
   // Get CSS classes for day button based on color state
   function getDayButtonClasses(dayCode) {
     const colorState = getDayColorState(dayCode);
-    const baseClasses = "p-4 rounded-lg border-2 transition-all font-medium cursor-pointer";
-    
+    const baseClasses =
+      "p-4 rounded-lg border-2 transition-all font-medium cursor-pointer";
+
     switch (colorState) {
       case "blue":
         return `${baseClasses} border-blue-500 bg-blue-50 text-blue-700`;
@@ -231,8 +241,9 @@ export default function ScheduleDetail() {
   // Get CSS classes for hour button based on color state
   function getHourButtonClasses(hour) {
     const colorState = getHourColorState(hour);
-    const baseClasses = "p-3 rounded-lg border-2 transition-all font-medium text-sm cursor-pointer";
-    
+    const baseClasses =
+      "p-3 rounded-lg border-2 transition-all font-medium text-sm cursor-pointer";
+
     switch (colorState) {
       case "blue":
         return `${baseClasses} border-blue-500 bg-blue-50 text-blue-700`;
@@ -271,8 +282,9 @@ export default function ScheduleDetail() {
 
   // Get CSS classes for toggle switch based on color state
   function getToggleClasses(colorState, isChecked) {
-    const baseClasses = "relative w-11 h-6 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all";
-    
+    const baseClasses =
+      "relative w-11 h-6 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all";
+
     switch (colorState) {
       case "green":
         return `${baseClasses} bg-gray-200 peer-focus:ring-4 peer-focus:ring-green-300 after:border-gray-300 peer-checked:bg-green-600`;
@@ -302,27 +314,29 @@ export default function ScheduleDetail() {
 
     try {
       setSaving(true);
-      
+
       // Update main schedule
       const updateDTO = {
         ID: parseInt(id),
         Title: title,
-        ActiveFrom: activeFrom ? new Date(activeFrom).toISOString() : schedule.activeFrom,
+        ActiveFrom: activeFrom
+          ? new Date(activeFrom).toISOString()
+          : schedule.activeFrom,
         ActiveTo: activeTo ? new Date(activeTo).toISOString() : null,
-        IsEnabled: isEnabled
+        IsEnabled: isEnabled,
       };
 
       // Update schedule days
       const dayMapping = {
         monday: "Mo",
-        tuesday: "Tu", 
+        tuesday: "Tu",
         wednesday: "We",
         thursday: "Th",
         friday: "Fr",
         saturday: "Sa",
-        sunday: "Su"
+        sunday: "Su",
       };
-      
+
       const scheduleDaysUpdate = {
         monday: selectedDays.includes("Mo"),
         tuesday: selectedDays.includes("Tu"),
@@ -331,12 +345,12 @@ export default function ScheduleDetail() {
         friday: selectedDays.includes("Fr"),
         saturday: selectedDays.includes("Sa"),
         sunday: selectedDays.includes("Su"),
-        includeBankHols: includeBankHols
+        includeBankHols: includeBankHols,
       };
 
       // Update schedule hours
       const scheduleHoursArray = Array(24).fill(false);
-      selectedHours.forEach(hour => {
+      selectedHours.forEach((hour) => {
         scheduleHoursArray[hour] = true;
       });
 
@@ -344,12 +358,11 @@ export default function ScheduleDetail() {
       await Promise.all([
         updateSchedule(updateDTO),
         updateScheduleDays(parseInt(id), scheduleDaysUpdate),
-        updateScheduleHours(parseInt(id), scheduleHoursArray)
+        updateScheduleHours(parseInt(id), scheduleHoursArray),
       ]);
-      
+
       alert("Schedule updated successfully!");
       router.push("/schedules");
-      
     } catch (error) {
       console.error("Error updating schedule:", error);
       alert("Failed to update schedule. Please try again.");
@@ -374,7 +387,10 @@ export default function ScheduleDetail() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <p className="text-gray-600">Schedule not found</p>
-          <Link href="/schedules" className="mt-4 text-blue-600 hover:text-blue-800">
+          <Link
+            href="/schedules"
+            className="mt-4 text-blue-600 hover:text-blue-800"
+          >
             Back to Schedules
           </Link>
         </div>
@@ -420,7 +436,7 @@ export default function ScheduleDetail() {
               <h2 className="text-xl font-semibold text-gray-800 mb-6">
                 Schedule Details
               </h2>
-              
+
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -431,14 +447,16 @@ export default function ScheduleDetail() {
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
-                      title.trim() === "" 
-                        ? "border-red-300 focus:ring-red-500" 
+                      title.trim() === ""
+                        ? "border-red-300 focus:ring-red-500"
                         : "border-gray-300 focus:ring-blue-500"
                     }`}
                     placeholder="Enter schedule name"
                   />
                   {title.trim() === "" && (
-                    <p className="mt-1 text-sm text-red-600">Schedule name is required</p>
+                    <p className="mt-1 text-sm text-red-600">
+                      Schedule name is required
+                    </p>
                   )}
                 </div>
 
@@ -473,10 +491,14 @@ export default function ScheduleDetail() {
                       Schedule Enabled
                     </span>
                     {getEnabledToggleState() === "green" && (
-                      <span className="text-xs text-green-600 font-medium">(Activated)</span>
+                      <span className="text-xs text-green-600 font-medium">
+                        (Activated)
+                      </span>
                     )}
                     {getEnabledToggleState() === "red" && (
-                      <span className="text-xs text-red-600 font-medium">(Deactivated)</span>
+                      <span className="text-xs text-red-600 font-medium">
+                        (Deactivated)
+                      </span>
                     )}
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
@@ -486,7 +508,12 @@ export default function ScheduleDetail() {
                       onChange={(e) => setIsEnabled(e.target.checked)}
                       className="sr-only peer"
                     />
-                    <div className={getToggleClasses(getEnabledToggleState(), isEnabled)}></div>
+                    <div
+                      className={getToggleClasses(
+                        getEnabledToggleState(),
+                        isEnabled
+                      )}
+                    ></div>
                   </label>
                 </div>
 
@@ -496,10 +523,14 @@ export default function ScheduleDetail() {
                       Include Bank Holidays
                     </span>
                     {getBankHolsToggleState() === "green" && (
-                      <span className="text-xs text-green-600 font-medium">(Enabled)</span>
+                      <span className="text-xs text-green-600 font-medium">
+                        (Enabled)
+                      </span>
                     )}
                     {getBankHolsToggleState() === "red" && (
-                      <span className="text-xs text-red-600 font-medium">(Disabled)</span>
+                      <span className="text-xs text-red-600 font-medium">
+                        (Disabled)
+                      </span>
                     )}
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
@@ -509,7 +540,12 @@ export default function ScheduleDetail() {
                       onChange={(e) => setIncludeBankHols(e.target.checked)}
                       className="sr-only peer"
                     />
-                    <div className={getToggleClasses(getBankHolsToggleState(), includeBankHols)}></div>
+                    <div
+                      className={getToggleClasses(
+                        getBankHolsToggleState(),
+                        includeBankHols
+                      )}
+                    ></div>
                   </label>
                 </div>
               </div>
@@ -520,7 +556,7 @@ export default function ScheduleDetail() {
               <h2 className="text-xl font-semibold text-gray-800 mb-6">
                 Usage Information
               </h2>
-              
+
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-medium text-gray-700">
@@ -534,7 +570,7 @@ export default function ScheduleDetail() {
                     {schedule.dqcheckSchedules?.length || 0}
                   </button>
                 </div>
-                
+
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-medium text-gray-700">
                     Email notifications using this schedule:
@@ -548,11 +584,13 @@ export default function ScheduleDetail() {
                   </button>
                 </div>
 
-                {(schedule.dqcheckSchedules?.length > 0 || schedule.dqemailSchedules > 0) && (
+                {(schedule.dqcheckSchedules?.length > 0 ||
+                  schedule.dqemailSchedules > 0) && (
                   <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
                     <p className="text-sm text-yellow-800">
-                      <strong>Note:</strong> This schedule is currently in use. 
-                      Changes may affect existing data quality checks and email notifications.
+                      <strong>Note:</strong> This schedule is currently in use.
+                      Changes may affect existing data quality checks and email
+                      notifications.
                     </p>
                   </div>
                 )}
@@ -585,7 +623,7 @@ export default function ScheduleDetail() {
                 </div>
               </div>
             </div>
-            
+
             <div className="grid grid-cols-7 gap-3">
               {days.map((day) => (
                 <button
@@ -598,11 +636,12 @@ export default function ScheduleDetail() {
                 </button>
               ))}
             </div>
-            
+
             {selectedDays.length === 0 && (
               <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
                 <p className="text-sm text-red-700">
-                  ⚠️ No days selected. Please select at least one day for the schedule to be active.
+                  ⚠️ No days selected. Please select at least one day for the
+                  schedule to be active.
                 </p>
               </div>
             )}
@@ -633,7 +672,7 @@ export default function ScheduleDetail() {
                 </div>
               </div>
             </div>
-            
+
             <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-12 gap-3">
               {hours.map((hour) => (
                 <button
@@ -645,10 +684,12 @@ export default function ScheduleDetail() {
                 </button>
               ))}
             </div>
-            
+
             <div className="mt-4 flex space-x-3">
               <button
-                onClick={() => setSelectedHours([9, 10, 11, 12, 13, 14, 15, 16, 17])}
+                onClick={() =>
+                  setSelectedHours([9, 10, 11, 12, 13, 14, 15, 16, 17])
+                }
                 className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors text-sm"
               >
                 Business Hours (9am-5pm)
@@ -666,11 +707,12 @@ export default function ScheduleDetail() {
                 Clear All
               </button>
             </div>
-            
+
             {selectedHours.length === 0 && (
               <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
                 <p className="text-sm text-red-700">
-                  ⚠️ No hours selected. Please select at least one hour for the schedule to be active.
+                  ⚠️ No hours selected. Please select at least one hour for the
+                  schedule to be active.
                 </p>
               </div>
             )}
@@ -684,14 +726,21 @@ export default function ScheduleDetail() {
                   <div className="text-sm text-red-600">
                     <p className="font-medium mb-1">Cannot save schedule:</p>
                     <ul className="list-disc list-inside space-y-1">
-                      {title.trim() === "" && <li>Schedule name is required</li>}
-                      {selectedDays.length === 0 && <li>At least one day must be selected</li>}
-                      {selectedHours.length === 0 && <li>At least one hour must be selected</li>}
+                      {title.trim() === "" && (
+                        <li>Schedule name is required</li>
+                      )}
+                      {selectedDays.length === 0 && (
+                        <li>At least one day must be selected</li>
+                      )}
+                      {selectedHours.length === 0 && (
+                        <li>At least one hour must be selected</li>
+                      )}
                     </ul>
                   </div>
                 ) : hasChanges() ? (
                   <p className="text-sm text-amber-600">
-                    You have unsaved changes. Click "Save Changes" to apply them.
+                    You have unsaved changes. Click &quot;Save Changes&quot; to
+                    apply them.
                   </p>
                 ) : (
                   <p className="text-sm text-gray-500">

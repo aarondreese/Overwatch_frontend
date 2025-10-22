@@ -24,7 +24,7 @@ export default function DQEmails() {
   const [searchTerm, setSearchTerm] = useState("");
 
   // Filter DQ emails based on search term
-  const filteredDQEmails = dqEmails.filter(email => {
+  const filteredDQEmails = dqEmails.filter((email) => {
     if (!searchTerm) return true;
     const searchLower = searchTerm.toLowerCase();
     return (
@@ -67,14 +67,15 @@ export default function DQEmails() {
   }
 
   function formatLastRun(lastRunDateTime) {
-    if (!lastRunDateTime) return 'Never';
+    if (!lastRunDateTime) return "Never";
     return new Date(lastRunDateTime).toLocaleString();
   }
 
   function formatFrequency(frequencyInMinutes) {
-    if (!frequencyInMinutes) return 'Not set';
+    if (!frequencyInMinutes) return "Not set";
     if (frequencyInMinutes < 60) return `${frequencyInMinutes}m`;
-    if (frequencyInMinutes < 1440) return `${Math.floor(frequencyInMinutes / 60)}h`;
+    if (frequencyInMinutes < 1440)
+      return `${Math.floor(frequencyInMinutes / 60)}h`;
     return `${Math.floor(frequencyInMinutes / 1440)}d`;
   }
 
@@ -116,10 +117,9 @@ export default function DQEmails() {
               </h1>
             </div>
             <div className="text-sm text-gray-600">
-              {searchTerm 
+              {searchTerm
                 ? `${filteredDQEmails.length} of ${dqEmails.length} emails found`
-                : `${dqEmails.length} emails found`
-              }
+                : `${dqEmails.length} emails found`}
             </div>
           </div>
 
@@ -168,7 +168,9 @@ export default function DQEmails() {
                   <div className="text-2xl font-bold text-gray-900">
                     {filteredDQEmails.filter((email) => email.dqCheckId).length}
                   </div>
-                  <div className="text-sm text-gray-500">Linked to DQ Checks</div>
+                  <div className="text-sm text-gray-500">
+                    Linked to DQ Checks
+                  </div>
                 </div>
               </div>
             </div>
@@ -277,7 +279,10 @@ export default function DQEmails() {
                           <div className="font-medium">
                             {formatFrequency(email.frequencyInMinutes)}
                           </div>
-                          <div className="text-gray-500 mt-1 truncate" title={formatLastRun(email.lastRunDateTime)}>
+                          <div
+                            className="text-gray-500 mt-1 truncate"
+                            title={formatLastRun(email.lastRunDateTime)}
+                          >
                             {formatLastRun(email.lastRunDateTime)}
                           </div>
                         </div>
@@ -285,33 +290,45 @@ export default function DQEmails() {
 
                       {/* Schedules */}
                       <td className="px-3 sm:px-6 py-4 text-center w-16">
-                        <span className={`px-2 py-1 rounded-full text-xs ${
-                          (email.activeScheduleCount || 0) === 0 
-                            ? "bg-red-100 text-red-800" 
-                            : "bg-blue-100 text-blue-800"
-                        }`}>
-                          {email.activeScheduleCount || 0}/{email.totalScheduleCount || 0}
+                        <span
+                          className={`px-2 py-1 rounded-full text-xs ${
+                            (email.activeScheduleCount || 0) === 0
+                              ? "bg-red-100 text-red-800"
+                              : "bg-blue-100 text-blue-800"
+                          }`}
+                        >
+                          {email.activeScheduleCount || 0}/
+                          {email.totalScheduleCount || 0}
                         </span>
                       </td>
 
                       {/* DQ Check / Stored Procedure */}
                       <td className="px-3 sm:px-6 py-4 text-right w-1/6">
-                        <div className="text-xs text-gray-600 truncate" title={email.dqCheckFunction || email.runStoredProcedure}>
+                        <div
+                          className="text-xs text-gray-600 truncate"
+                          title={
+                            email.dqCheckFunction || email.runStoredProcedure
+                          }
+                        >
                           {email.dqCheckFunction && (
                             <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                               <span className="w-2 h-2 bg-blue-400 rounded-full mr-1"></span>
                               {email.dqCheckFunction}
                             </span>
                           )}
-                          {email.runStoredProcedure && !email.dqCheckFunction && (
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                              <span className="w-2 h-2 bg-purple-400 rounded-full mr-1"></span>
-                              {email.runStoredProcedure}
-                            </span>
-                          )}
-                          {!email.dqCheckFunction && !email.runStoredProcedure && (
-                            <span className="text-gray-400 italic">Not configured</span>
-                          )}
+                          {email.runStoredProcedure &&
+                            !email.dqCheckFunction && (
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                <span className="w-2 h-2 bg-purple-400 rounded-full mr-1"></span>
+                                {email.runStoredProcedure}
+                              </span>
+                            )}
+                          {!email.dqCheckFunction &&
+                            !email.runStoredProcedure && (
+                              <span className="text-gray-400 italic">
+                                Not configured
+                              </span>
+                            )}
                         </div>
                       </td>
                     </tr>
@@ -325,7 +342,9 @@ export default function DQEmails() {
             <div className="text-center py-12">
               <EnvelopeIcon className="h-12 w-12 text-gray-300 mx-auto mb-4" />
               <p className="text-gray-500">
-                {searchTerm ? `No DQ emails found matching "${searchTerm}"` : "No DQ emails found"}
+                {searchTerm
+                  ? `No DQ emails found matching "${searchTerm}"`
+                  : "No DQ emails found"}
               </p>
             </div>
           )}

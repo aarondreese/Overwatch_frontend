@@ -2,7 +2,11 @@ import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
 import Link from "next/link";
-import { listSchedules, deleteSchedule, updateSchedule } from "@/lib/client/schedules";
+import {
+  listSchedules,
+  deleteSchedule,
+  updateSchedule,
+} from "@/lib/client/schedules";
 
 import {
   PencilSquareIcon,
@@ -40,7 +44,7 @@ export default function Schedules() {
   async function handleToggleStatus(scheduleID, currentStatus) {
     try {
       // Find the current schedule to get all its data
-      const currentSchedule = schedules.find(s => s.id === scheduleID);
+      const currentSchedule = schedules.find((s) => s.id === scheduleID);
       if (!currentSchedule) {
         console.error("Schedule not found:", scheduleID);
         return;
@@ -52,7 +56,7 @@ export default function Schedules() {
         Title: currentSchedule.title,
         ActiveFrom: currentSchedule.activeFrom,
         ActiveTo: currentSchedule.activeTo,
-        IsEnabled: !currentStatus
+        IsEnabled: !currentStatus,
       };
 
       await updateSchedule(updateDTO);
@@ -67,8 +71,8 @@ export default function Schedules() {
   function formatDate(dateString) {
     if (!dateString) return "forever";
     const date = new Date(dateString);
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, "0");
+    const month = String(date.getMonth() + 1).padStart(2, "0");
     const year = String(date.getFullYear()).slice(-2);
     return `${day}/${month}/${year}`;
   }
@@ -77,15 +81,15 @@ export default function Schedules() {
   function formatDays(daysString) {
     if (!daysString) return "N/A";
     const dayMap = {
-      'Mo': 'Mon',
-      'Tu': 'Tue', 
-      'We': 'Wed',
-      'Th': 'Thu',
-      'Fr': 'Fri',
-      'Sa': 'Sat',
-      'Su': 'Sun'
+      Mo: "Mon",
+      Tu: "Tue",
+      We: "Wed",
+      Th: "Thu",
+      Fr: "Fri",
+      Sa: "Sat",
+      Su: "Sun",
     };
-    
+
     let result = [];
     for (let i = 0; i < daysString.length; i += 2) {
       const dayCode = daysString.substr(i, 2);
@@ -93,7 +97,7 @@ export default function Schedules() {
         result.push(dayMap[dayCode]);
       }
     }
-    return result.join(', ') || "N/A";
+    return result.join(", ") || "N/A";
   }
 
   return (
@@ -129,7 +133,8 @@ export default function Schedules() {
                   All Schedules
                 </h2>
                 <p className="text-sm text-gray-600">
-                  Manage timing schedules for DQ checks, email dispatch, and event monitoring
+                  Manage timing schedules for DQ checks, email dispatch, and
+                  event monitoring
                 </p>
               </div>
               <button className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200 flex items-center gap-2">
@@ -178,9 +183,13 @@ export default function Schedules() {
                       className={`hover:bg-gray-50 cursor-pointer ${
                         selectedScheduleID === schedule.id ? "bg-blue-50" : ""
                       }`}
-                      onClick={() => setSelectedScheduleID(
-                        selectedScheduleID === schedule.id ? null : schedule.id
-                      )}
+                      onClick={() =>
+                        setSelectedScheduleID(
+                          selectedScheduleID === schedule.id
+                            ? null
+                            : schedule.id
+                        )
+                      }
                     >
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900">
@@ -194,7 +203,10 @@ export default function Schedules() {
                             checked={schedule.isEnabled}
                             onChange={(e) => {
                               e.stopPropagation();
-                              handleToggleStatus(schedule.id, schedule.isEnabled);
+                              handleToggleStatus(
+                                schedule.id,
+                                schedule.isEnabled
+                              );
                             }}
                             className="sr-only peer"
                           />
@@ -218,11 +230,14 @@ export default function Schedules() {
                               : "bg-gray-100 text-gray-800"
                           }`}
                         >
-                          {schedule.showMySchedule?.includeBankHols ? "Yes" : "No"}
+                          {schedule.showMySchedule?.includeBankHols
+                            ? "Yes"
+                            : "No"}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {formatDate(schedule.activeFrom)} - {formatDate(schedule.activeTo)}
+                        {formatDate(schedule.activeFrom)} -{" "}
+                        {formatDate(schedule.activeTo)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500">
                         <div className="flex items-center justify-center space-x-2">
@@ -280,7 +295,7 @@ export default function Schedules() {
                 </tbody>
               </table>
             </div>
-            
+
             {schedules.length === 0 && (
               <div className="px-6 py-12 text-center">
                 <p className="text-gray-500">No schedules found</p>

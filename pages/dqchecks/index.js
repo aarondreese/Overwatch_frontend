@@ -3,7 +3,7 @@ import { useRouter } from "next/router";
 import Head from "next/head";
 import Link from "next/link";
 import { listDQChecks, updateDQCheckStatus } from "@/lib/client/dqchecks";
-import AddDQCheckModal from '@/components/AddDQCheckModal';
+import AddDQCheckModal from "@/components/AddDQCheckModal";
 
 import {
   PencilSquareIcon,
@@ -26,7 +26,7 @@ export default function DQChecks() {
   const [showAddModal, setShowAddModal] = useState(false);
 
   // Filter DQ checks based on search term
-  const filteredDQChecks = dqChecks.filter(check => {
+  const filteredDQChecks = dqChecks.filter((check) => {
     if (!searchTerm) return true;
     const searchLower = searchTerm.toLowerCase();
     return (
@@ -125,10 +125,9 @@ export default function DQChecks() {
                 Add New DQ Check
               </button>
               <div className="text-sm text-gray-600">
-                {searchTerm 
+                {searchTerm
                   ? `${filteredDQChecks.length} of ${dqChecks.length} checks found`
-                  : `${dqChecks.length} checks found`
-                }
+                  : `${dqChecks.length} checks found`}
               </div>
             </div>
           </div>
@@ -288,12 +287,16 @@ export default function DQChecks() {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500">
-                        <span className={`px-2 py-1 rounded-full text-xs ${
-                          (check.activeScheduleCount || 0) === 0 
-                            ? "bg-red-100 text-red-800" 
-                            : "bg-blue-100 text-blue-800"
-                        }`}>
-                          {check.activeScheduleCount || 0}/{(check.activeScheduleCount || 0) + (check.inactiveScheduleCount || 0)}
+                        <span
+                          className={`px-2 py-1 rounded-full text-xs ${
+                            (check.activeScheduleCount || 0) === 0
+                              ? "bg-red-100 text-red-800"
+                              : "bg-blue-100 text-blue-800"
+                          }`}
+                        >
+                          {check.activeScheduleCount || 0}/
+                          {(check.activeScheduleCount || 0) +
+                            (check.inactiveScheduleCount || 0)}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500">
@@ -326,14 +329,16 @@ export default function DQChecks() {
             <div className="text-center py-12">
               <CheckCircleIcon className="h-12 w-12 text-gray-300 mx-auto mb-4" />
               <p className="text-gray-500">
-                {searchTerm ? `No DQ checks found matching "${searchTerm}"` : "No DQ checks found"}
+                {searchTerm
+                  ? `No DQ checks found matching "${searchTerm}"`
+                  : "No DQ checks found"}
               </p>
             </div>
           )}
         </div>
-        
+
         {/* Add DQ Check Modal */}
-        <AddDQCheckModal 
+        <AddDQCheckModal
           isOpen={showAddModal}
           onClose={() => setShowAddModal(false)}
           onSuccess={() => {

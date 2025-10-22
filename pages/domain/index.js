@@ -43,8 +43,12 @@ export default function Domain() {
     if (searchTerm.trim()) {
       const searchLower = searchTerm.toLowerCase();
       result = result.filter((domain) => {
-        const domainNameMatch = domain.domainName?.toLowerCase().includes(searchLower);
-        const sourceSystemMatch = domain.sourceSystemName?.toLowerCase().includes(searchLower);
+        const domainNameMatch = domain.domainName
+          ?.toLowerCase()
+          .includes(searchLower);
+        const sourceSystemMatch = domain.sourceSystemName
+          ?.toLowerCase()
+          .includes(searchLower);
         return domainNameMatch || sourceSystemMatch;
       });
     }
@@ -211,7 +215,8 @@ export default function Domain() {
                           <span className="flex flex-col">
                             <svg
                               className={`h-3 w-3 ${
-                                sortField === "domainName" && sortDirection === "asc"
+                                sortField === "domainName" &&
+                                sortDirection === "asc"
                                   ? "text-blue-600"
                                   : "text-gray-400"
                               }`}
@@ -222,7 +227,8 @@ export default function Domain() {
                             </svg>
                             <svg
                               className={`h-3 w-3 -mt-1 ${
-                                sortField === "domainName" && sortDirection === "desc"
+                                sortField === "domainName" &&
+                                sortDirection === "desc"
                                   ? "text-blue-600"
                                   : "text-gray-400"
                               }`}
@@ -243,7 +249,8 @@ export default function Domain() {
                           <span className="flex flex-col">
                             <svg
                               className={`h-3 w-3 ${
-                                sortField === "sourceSystemName" && sortDirection === "asc"
+                                sortField === "sourceSystemName" &&
+                                sortDirection === "asc"
                                   ? "text-blue-600"
                                   : "text-gray-400"
                               }`}
@@ -254,7 +261,8 @@ export default function Domain() {
                             </svg>
                             <svg
                               className={`h-3 w-3 -mt-1 ${
-                                sortField === "sourceSystemName" && sortDirection === "desc"
+                                sortField === "sourceSystemName" &&
+                                sortDirection === "desc"
                                   ? "text-blue-600"
                                   : "text-gray-400"
                               }`}

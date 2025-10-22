@@ -153,7 +153,7 @@ export default function AddDQCheckModal({ isOpen, onClose, onSuccess }) {
         return;
       }
 
-      const response = await fetch('/api/DQChecks/create', {
+      const response = await fetch('/api/DQChecks', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

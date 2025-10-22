@@ -1,23 +1,22 @@
-
 import { useState } from "react";
 const data = [
   {
-    groupName: 'Group A',
+    groupName: "Group A",
     members: [
-      { id: 1, name: 'Alice' },
-      { id: 2, name: 'Bob' },
+      { id: 1, name: "Alice" },
+      { id: 2, name: "Bob" },
     ],
   },
   {
-    groupName: 'Group B',
+    groupName: "Group B",
     members: [
-      { id: 3, name: 'Cindy' },
-      { id: 4, name: 'David' },
+      { id: 3, name: "Cindy" },
+      { id: 4, name: "David" },
     ],
   },
 ];
 
-export default function gpt() {
+export default function Gpt() {
   const [groups, setGroups] = useState(data);
 
   return (
@@ -50,5 +49,3 @@ export default function gpt() {
     </div>
   );
 }
-
-
