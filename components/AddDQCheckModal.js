@@ -1,17 +1,17 @@
-import { useState, useEffect } from 'react';
-import { XMarkIcon } from '@heroicons/react/24/solid';
-import ToggleSwitch from './ToggleSwitch';
+import { useState, useEffect } from "react";
+import { XMarkIcon } from "@heroicons/react/24/solid";
+import ToggleSwitch from "./ToggleSwitch";
 
 export default function AddDQCheckModal({ isOpen, onClose, onSuccess }) {
   const [formData, setFormData] = useState({
-    functionName: '',
-    domainId: '',
+    functionName: "",
+    domainId: "",
     isActive: true,
-    explain: '',
-    warningLevel: '',
-    lifetime: '',
+    explain: "",
+    warningLevel: "",
+    lifetime: "",
     isInTest: false,
-    schedules: []
+    schedules: [],
   });
 
   const [loading, setLoading] = useState(false);
@@ -21,23 +21,23 @@ export default function AddDQCheckModal({ isOpen, onClose, onSuccess }) {
   const [sourceSystems, setSourceSystems] = useState([]);
   const [schedules, setSchedules] = useState([]);
   const [loadingData, setLoadingData] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
 
   // Reset form when modal opens/closes
   useEffect(() => {
     if (isOpen) {
       loadInitialData();
-      setError('');
+      setError("");
     } else {
       setFormData({
-        functionName: '',
-        domainId: '',
+        functionName: "",
+        domainId: "",
         isActive: true,
-        explain: '',
-        warningLevel: '',
-        lifetime: '',
+        explain: "",
+        warningLevel: "",
+        lifetime: "",
         isInTest: false,
-        schedules: []
+        schedules: [],
       });
       // Reset domains to show all when modal closes
       setDomains(allDomains);
@@ -47,12 +47,12 @@ export default function AddDQCheckModal({ isOpen, onClose, onSuccess }) {
   const loadInitialData = async () => {
     try {
       setLoadingData(true);
-      
+
       // Load available functions, source systems, and schedules in parallel
       const [functionsRes, sourceSystemsRes, schedulesRes] = await Promise.all([
-        fetch('/api/available-dq-functions'),
-        fetch('/api/SourceSystems'),
-        fetch('/api/Schedules')
+        fetch("/api/available-dq-functions"),
+        fetch("/api/SourceSystems"),
+        fetch("/api/Schedules"),
       ]);
 
       const functionsData = await functionsRes.json();
@@ -62,29 +62,29 @@ export default function AddDQCheckModal({ isOpen, onClose, onSuccess }) {
       if (functionsData.success) {
         setAvailableFunctions(functionsData.data.available);
       }
-      
+
       if (sourceSystemsData.success) {
         setSourceSystems(sourceSystemsData.data);
         // Flatten all domains from all source systems
         const allDomainsFlat = sourceSystemsData.data.reduce((acc, system) => {
-          const systemDomains = system.domains.map(domain => ({
+          const systemDomains = system.domains.map((domain) => ({
             ...domain,
             sourceSystemId: system.id,
             sourceSystemName: system.systemName,
-            sourceSchema: system.defaultTargetSchema // Use defaultTargetSchema instead of defaultSourceSchema
+            sourceSchema: system.defaultTargetSchema, // Use defaultTargetSchema instead of defaultSourceSchema
           }));
           return [...acc, ...systemDomains];
         }, []);
         setAllDomains(allDomainsFlat);
         setDomains(allDomainsFlat); // Initially show all domains
       }
-      
+
       if (schedulesData.success) {
         setSchedules(schedulesData.data);
       }
     } catch (error) {
-      console.error('Error loading initial data:', error);
-      setError('Failed to load form data. Please try again.');
+      console.error("Error loading initial data:", error);
+      setError("Failed to load form data. Please try again.");
     } finally {
       setLoadingData(false);
     }
@@ -92,26 +92,30 @@ export default function AddDQCheckModal({ isOpen, onClose, onSuccess }) {
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value
+      [name]: type === "checkbox" ? checked : value,
     }));
   };
 
   const handleFunctionChange = (e) => {
     const selectedFunctionName = e.target.value;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       functionName: selectedFunctionName,
-      domainId: '' // Reset domain selection when function changes
+      domainId: "", // Reset domain selection when function changes
     }));
 
     // Filter domains based on the selected function's schema
     if (selectedFunctionName) {
-      const selectedFunction = availableFunctions.find(f => f.functionName === selectedFunctionName);
+      const selectedFunction = availableFunctions.find(
+        (f) => f.functionName === selectedFunctionName
+      );
       if (selectedFunction) {
         const functionSchema = selectedFunction.schemaName;
-        const filteredDomains = allDomains.filter(domain => domain.sourceSchema === functionSchema);
+        const filteredDomains = allDomains.filter(
+          (domain) => domain.sourceSchema === functionSchema
+        );
         setDomains(filteredDomains);
       }
     } else {
@@ -121,52 +125,65 @@ export default function AddDQCheckModal({ isOpen, onClose, onSuccess }) {
   };
 
   const handleScheduleToggle = (scheduleId) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       schedules: prev.schedules.includes(scheduleId)
-        ? prev.schedules.filter(id => id !== scheduleId)
-        : [...prev.schedules, scheduleId]
+        ? prev.schedules.filter((id) => id !== scheduleId)
+        : [...prev.schedules, scheduleId],
     }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
+    setError("");
     setLoading(true);
 
     try {
       // Validate required fields
-      if (!formData.functionName || !formData.domainId || !formData.explain?.trim()) {
-        setError('Function Name, Domain, and Description are required.');
+      if (
+        !formData.functionName ||
+        !formData.domainId ||
+        !formData.explain?.trim()
+      ) {
+        setError("Function Name, Domain, and Description are required.");
         return;
       }
 
       // Validate warning level range
-      if (formData.warningLevel && (parseInt(formData.warningLevel) < 1 || parseInt(formData.warningLevel) > 100)) {
-        setError('Warning Level must be between 1 and 100.');
+      if (
+        formData.warningLevel &&
+        (parseInt(formData.warningLevel) < 1 ||
+          parseInt(formData.warningLevel) > 100)
+      ) {
+        setError("Warning Level must be between 1 and 100.");
         return;
       }
 
       // Validate lifetime range
-      if (formData.lifetime && (parseInt(formData.lifetime) < 1 || parseInt(formData.lifetime) > 9999)) {
-        setError('Lifetime must be between 1 and 9999 days.');
+      if (
+        formData.lifetime &&
+        (parseInt(formData.lifetime) < 1 || parseInt(formData.lifetime) > 9999)
+      ) {
+        setError("Lifetime must be between 1 and 9999 days.");
         return;
       }
 
-      const response = await fetch('/api/DQChecks', {
-        method: 'POST',
+      const response = await fetch("/api/DQChecks", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           functionName: formData.functionName,
           domainId: parseInt(formData.domainId),
           isActive: formData.isActive ? 1 : 0,
           explain: formData.explain || null,
-          warningLevel: formData.warningLevel ? parseInt(formData.warningLevel) : null,
+          warningLevel: formData.warningLevel
+            ? parseInt(formData.warningLevel)
+            : null,
           lifetime: formData.lifetime ? parseInt(formData.lifetime) : null,
           isInTest: formData.isInTest ? 1 : 0,
-          schedules: formData.schedules.map(id => parseInt(id))
+          schedules: formData.schedules.map((id) => parseInt(id)),
         }),
       });
 
@@ -176,11 +193,11 @@ export default function AddDQCheckModal({ isOpen, onClose, onSuccess }) {
         onSuccess();
         onClose();
       } else {
-        setError(result.message || 'Failed to create DQ check');
+        setError(result.message || "Failed to create DQ check");
       }
     } catch (error) {
-      console.error('Error creating DQ check:', error);
-      setError('Failed to create DQ check. Please try again.');
+      console.error("Error creating DQ check:", error);
+      setError("Failed to create DQ check. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -267,10 +284,13 @@ export default function AddDQCheckModal({ isOpen, onClose, onSuccess }) {
                   ))}
                 </select>
                 <p className="mt-1 text-xs text-gray-500">
-                  {formData.functionName 
-                    ? `${domains.length} domains available for ${availableFunctions.find(f => f.functionName === formData.functionName)?.schemaName || 'selected'} schema`
-                    : `${domains.length} domains available (select a function to filter)`
-                  }
+                  {formData.functionName
+                    ? `${domains.length} domains available for ${
+                        availableFunctions.find(
+                          (f) => f.functionName === formData.functionName
+                        )?.schemaName || "selected"
+                      } schema`
+                    : `${domains.length} domains available (select a function to filter)`}
                 </p>
               </div>
 
@@ -290,7 +310,8 @@ export default function AddDQCheckModal({ isOpen, onClose, onSuccess }) {
                   placeholder="e.g., 50, 100"
                 />
                 <p className="mt-1 text-xs text-gray-500">
-                  Must be between 1-100 (1-49: Info, 50-99: Advisory, 100: Important)
+                  Must be between 1-100 (1-49: Info, 50-99: Advisory, 100:
+                  Important)
                 </p>
               </div>
 
@@ -335,13 +356,17 @@ export default function AddDQCheckModal({ isOpen, onClose, onSuccess }) {
             <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
               <ToggleSwitch
                 checked={formData.isActive}
-                onChange={() => setFormData(prev => ({ ...prev, isActive: !prev.isActive }))}
+                onChange={() =>
+                  setFormData((prev) => ({ ...prev, isActive: !prev.isActive }))
+                }
                 label="Active (enabled for execution)"
               />
 
               <ToggleSwitch
                 checked={formData.isInTest}
-                onChange={() => setFormData(prev => ({ ...prev, isInTest: !prev.isInTest }))}
+                onChange={() =>
+                  setFormData((prev) => ({ ...prev, isInTest: !prev.isInTest }))
+                }
                 label="In Test (testing mode)"
               />
             </div>
@@ -362,7 +387,9 @@ export default function AddDQCheckModal({ isOpen, onClose, onSuccess }) {
                       <span>
                         {schedule.title}
                         {!schedule.isEnabled && (
-                          <span className="text-red-500 text-xs ml-1">(Disabled)</span>
+                          <span className="text-red-500 text-xs ml-1">
+                            (Disabled)
+                          </span>
                         )}
                       </span>
                     }
@@ -388,7 +415,7 @@ export default function AddDQCheckModal({ isOpen, onClose, onSuccess }) {
                 disabled={loading}
                 className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                {loading ? 'Creating...' : 'Create DQ Check'}
+                {loading ? "Creating..." : "Create DQ Check"}
               </button>
             </div>
           </form>

@@ -1,27 +1,27 @@
-import { executeQuery } from '@/lib/db';
+import { executeQuery } from "@/lib/db";
 
 export default async function handler(req, res) {
   const { method } = req;
 
   try {
-    if (method === 'GET') {
+    if (method === "GET") {
       return await handleGet(req, res);
-    } else if (method === 'POST') {
+    } else if (method === "POST") {
       return await handlePost(req, res);
-    } else if (method === 'PUT') {
+    } else if (method === "PUT") {
       return await handlePut(req, res);
     } else {
-      return res.status(405).json({ 
-        success: false, 
-        message: 'Method not allowed' 
+      return res.status(405).json({
+        success: false,
+        message: "Method not allowed",
       });
     }
   } catch (error) {
-    console.error('DQChecks API error:', error);
+    console.error("DQChecks API error:", error);
     return res.status(500).json({
       success: false,
-      message: 'Internal server error',
-      error: error.message
+      message: "Internal server error",
+      error: error.message,
     });
   }
 }
@@ -30,7 +30,7 @@ async function handleGet(req, res) {
   const { id } = req.query;
 
   let query, params;
-  
+
   if (id) {
     // Get single DQ check with domain information
     query = `
@@ -108,15 +108,15 @@ async function handleGet(req, res) {
   }
 
   const result = await executeQuery(query, params);
-  
+
   if (id && result.recordset.length === 0) {
     return res.status(404).json({
       success: false,
-      message: 'DQ Check not found'
+      message: "DQ Check not found",
     });
   }
 
-  const dqChecks = result.recordset.map(check => ({
+  const dqChecks = result.recordset.map((check) => ({
     id: check.id,
     functionName: check.functionName,
     domainId: check.domainId,
@@ -130,14 +130,14 @@ async function handleGet(req, res) {
     activeScheduleCount: check.activeScheduleCount,
     inactiveScheduleCount: check.inactiveScheduleCount,
     scheduleCount: check.activeScheduleCount, // Keep for backward compatibility
-    resultCount: check.resultCount
+    resultCount: check.resultCount,
   }));
 
   return res.status(200).json({
     success: true,
-    message: 'DQ Checks retrieved successfully',
+    message: "DQ Checks retrieved successfully",
     data: id ? dqChecks[0] : dqChecks,
-    count: dqChecks.length
+    count: dqChecks.length,
   });
 }
 
@@ -150,45 +150,64 @@ async function handlePost(req, res) {
     warningLevel,
     lifetime,
     isInTest = 0,
-    schedules = [] // Array of schedule IDs to associate with this DQ check
+    schedules = [], // Array of schedule IDs to associate with this DQ check
   } = req.body;
 
   // Validate required fields
   if (!functionName || !domainId || !explain?.trim()) {
     return res.status(400).json({
       success: false,
-      message: 'FunctionName, Domain_ID, and Description (Explain) are required'
+      message:
+        "FunctionName, Domain_ID, and Description (Explain) are required",
     });
   }
 
   // Validate warning level range
-  if (warningLevel !== null && warningLevel !== undefined && (warningLevel < 1 || warningLevel > 100)) {
+  if (
+    warningLevel !== null &&
+    warningLevel !== undefined &&
+    (warningLevel < 1 || warningLevel > 100)
+  ) {
     return res.status(400).json({
       success: false,
-      message: 'Warning Level must be between 1 and 100'
+      message: "Warning Level must be between 1 and 100",
     });
   }
 
   // Validate lifetime range
-  if (lifetime !== null && lifetime !== undefined && (lifetime < 1 || lifetime > 9999)) {
+  if (
+    lifetime !== null &&
+    lifetime !== undefined &&
+    (lifetime < 1 || lifetime > 9999)
+  ) {
     return res.status(400).json({
       success: false,
-      message: 'Lifetime must be between 1 and 9999 days'
+      message: "Lifetime must be between 1 and 9999 days",
     });
   }
 
-  console.log('Creating new DQ check:', { functionName, domainId, isActive, explain, warningLevel, lifetime, isInTest });
+  console.log("Creating new DQ check:", {
+    functionName,
+    domainId,
+    isActive,
+    explain,
+    warningLevel,
+    lifetime,
+    isInTest,
+  });
 
   // Check if function name already exists
   const existingCheckQuery = `
     SELECT ID FROM pow.DQCheck WHERE FunctionName = @functionName
   `;
-  const existingResult = await executeQuery(existingCheckQuery, { functionName });
-  
+  const existingResult = await executeQuery(existingCheckQuery, {
+    functionName,
+  });
+
   if (existingResult.recordset.length > 0) {
     return res.status(400).json({
       success: false,
-      message: `A DQ check with function name '${functionName}' already exists`
+      message: `A DQ check with function name '${functionName}' already exists`,
     });
   }
 
@@ -222,13 +241,13 @@ async function handlePost(req, res) {
     explain: explain.trim(), // Remove any leading/trailing whitespace
     warningLevel: warningLevel ? parseInt(warningLevel) : null,
     lifetime: lifetime ? parseInt(lifetime) : null,
-    isInTest: parseInt(isInTest)
+    isInTest: parseInt(isInTest),
   };
 
   const insertResult = await executeQuery(insertQuery, insertParams);
   const newDQCheckId = insertResult.recordset[0].ID;
 
-  console.log('Created DQCheck with ID:', newDQCheckId);
+  console.log("Created DQCheck with ID:", newDQCheckId);
 
   // If schedules are provided, create DQCheck_Schedule relationships
   const scheduleResults = [];
@@ -250,21 +269,26 @@ async function handlePost(req, res) {
 
         await executeQuery(scheduleInsertQuery, {
           dqCheckId: newDQCheckId,
-          scheduleId: parseInt(scheduleId)
+          scheduleId: parseInt(scheduleId),
         });
 
         scheduleResults.push({
           scheduleId: parseInt(scheduleId),
-          success: true
+          success: true,
         });
 
-        console.log(`Associated DQCheck ${newDQCheckId} with Schedule ${scheduleId}`);
+        console.log(
+          `Associated DQCheck ${newDQCheckId} with Schedule ${scheduleId}`
+        );
       } catch (scheduleError) {
-        console.error(`Failed to associate with schedule ${scheduleId}:`, scheduleError);
+        console.error(
+          `Failed to associate with schedule ${scheduleId}:`,
+          scheduleError
+        );
         scheduleResults.push({
           scheduleId: parseInt(scheduleId),
           success: false,
-          error: scheduleError.message
+          error: scheduleError.message,
         });
       }
     }
@@ -287,12 +311,14 @@ async function handlePost(req, res) {
     WHERE dq.ID = @dqCheckId
   `;
 
-  const selectResult = await executeQuery(selectQuery, { dqCheckId: newDQCheckId });
+  const selectResult = await executeQuery(selectQuery, {
+    dqCheckId: newDQCheckId,
+  });
   const createdRecord = selectResult.recordset[0];
 
   return res.status(201).json({
     success: true,
-    message: 'DQ check created successfully',
+    message: "DQ check created successfully",
     data: {
       dqCheck: {
         id: createdRecord.ID,
@@ -303,10 +329,10 @@ async function handlePost(req, res) {
         explain: createdRecord.Explain,
         warningLevel: createdRecord.WarningLevel,
         lifetime: createdRecord.Lifetime,
-        isInTest: Boolean(createdRecord.isInTest)
+        isInTest: Boolean(createdRecord.isInTest),
       },
-      scheduleAssociations: scheduleResults
-    }
+      scheduleAssociations: scheduleResults,
+    },
   });
 }
 
@@ -315,9 +341,9 @@ async function handlePut(req, res) {
   const { isActive, lifetime, warningLevel, explain, isInTest } = req.body;
 
   if (!id) {
-    return res.status(400).json({ 
-      success: false, 
-      message: 'DQ Check ID is required' 
+    return res.status(400).json({
+      success: false,
+      message: "DQ Check ID is required",
     });
   }
 
@@ -325,62 +351,66 @@ async function handlePut(req, res) {
   const updateFields = [];
   const params = { id: parseInt(id) };
 
-  if (typeof isActive === 'boolean') {
-    updateFields.push('isActive = @isActive');
+  if (typeof isActive === "boolean") {
+    updateFields.push("isActive = @isActive");
     params.isActive = isActive ? 1 : 0;
   }
 
-  if (typeof isInTest === 'boolean') {
-    updateFields.push('isInTest = @isInTest');
+  if (typeof isInTest === "boolean") {
+    updateFields.push("isInTest = @isInTest");
     params.isInTest = isInTest ? 1 : 0;
   }
 
   if (lifetime !== undefined) {
     const lifetimeNum = parseInt(lifetime);
     if (isNaN(lifetimeNum) || lifetimeNum < 0 || lifetimeNum > 9999) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Lifetime must be a number between 0 and 9999' 
+      return res.status(400).json({
+        success: false,
+        message: "Lifetime must be a number between 0 and 9999",
       });
     }
-    updateFields.push('Lifetime = @lifetime');
+    updateFields.push("Lifetime = @lifetime");
     params.lifetime = lifetimeNum;
   }
 
   if (warningLevel !== undefined) {
     const warningLevelNum = parseInt(warningLevel);
-    if (isNaN(warningLevelNum) || warningLevelNum < 1 || warningLevelNum > 100) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Warning Level must be a number between 1 and 100' 
+    if (
+      isNaN(warningLevelNum) ||
+      warningLevelNum < 1 ||
+      warningLevelNum > 100
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Warning Level must be a number between 1 and 100",
       });
     }
-    updateFields.push('WarningLevel = @warningLevel');
+    updateFields.push("WarningLevel = @warningLevel");
     params.warningLevel = warningLevelNum;
   }
 
   if (explain !== undefined) {
     if (!explain?.trim()) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Description cannot be empty' 
+      return res.status(400).json({
+        success: false,
+        message: "Description cannot be empty",
       });
     }
-    updateFields.push('Explain = @explain');
+    updateFields.push("Explain = @explain");
     params.explain = explain.trim();
   }
 
   if (updateFields.length === 0) {
-    return res.status(400).json({ 
-      success: false, 
-      message: 'No valid fields provided for update' 
+    return res.status(400).json({
+      success: false,
+      message: "No valid fields provided for update",
     });
   }
 
   try {
     const updateQuery = `
       UPDATE pow.DQCheck 
-      SET ${updateFields.join(', ')}
+      SET ${updateFields.join(", ")}
       WHERE ID = @id
     `;
 
@@ -389,25 +419,24 @@ async function handlePut(req, res) {
     if (result.rowsAffected && result.rowsAffected[0] > 0) {
       return res.status(200).json({
         success: true,
-        message: 'DQ Check updated successfully',
+        message: "DQ Check updated successfully",
         data: {
           id: parseInt(id),
-          updatedFields: Object.keys(req.body)
-        }
+          updatedFields: Object.keys(req.body),
+        },
       });
     } else {
       return res.status(404).json({
         success: false,
-        message: 'DQ Check not found or no changes made'
+        message: "DQ Check not found or no changes made",
       });
     }
-
   } catch (error) {
-    console.error('Update DQ Check status error:', error);
+    console.error("Update DQ Check status error:", error);
     return res.status(500).json({
       success: false,
-      message: 'Failed to update DQ Check status',
-      error: error.message
+      message: "Failed to update DQ Check status",
+      error: error.message,
     });
   }
 }

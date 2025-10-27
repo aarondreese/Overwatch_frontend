@@ -49,7 +49,9 @@ export default async function handler(req, res) {
       startDate: schedule.activeFrom,
       endDate: schedule.activeTo,
       scheduleDays: schedule.scheduleDays ? schedule.scheduleDays.trim() : null,
-      scheduleHours: schedule.scheduleHours ? schedule.scheduleHours.trim() : null,
+      scheduleHours: schedule.scheduleHours
+        ? schedule.scheduleHours.trim()
+        : null,
     }));
 
     return res.status(200).json({

@@ -364,7 +364,6 @@ export default function DQEmailDetails() {
         editFormData.frequencyNumber * editFormData.frequencyUnit;
 
       const updates = {
-        htmlTemplateName: editFormData.htmlTemplateName || null,
         frequencyInMinutes,
         emailSubject: editFormData.emailSubject || null,
         description: editFormData.description || null,
@@ -373,12 +372,15 @@ export default function DQEmailDetails() {
 
       // Add fields based on the selected mode
       if (editFormData.useStoredProcedure) {
-        // Stored Procedure mode
+        // Stored Procedure mode - clear out template-based fields
         updates.runStoredProcedure = editFormData.runStoredProcedure || null;
         updates.mapView = null;
         updates.dqCheckId = null;
+        updates.htmlTemplateName = null;
+        updates.mapRules = null;
       } else {
-        // DQ Check + Map View mode
+        // DQ Check + Map View mode - clear out stored procedure field
+        updates.htmlTemplateName = editFormData.htmlTemplateName || null;
         updates.mapView = editFormData.mapView || null;
         updates.dqCheckId = editFormData.dqCheckId
           ? parseInt(editFormData.dqCheckId)
@@ -1768,6 +1770,7 @@ export default function DQEmailDetails() {
                             // Extract template hierarchy order from the existing forDirectives
                             // Apply same normalization as backend: take last segment after dots
                             const normalized = [];
+                            const normalizedLower = []; // Track lowercase versions for case-insensitive comparison
                             forDirectives.forEach((fd) => {
                               let collection = fd.collection || "";
                               collection = collection.trim();
@@ -1775,8 +1778,11 @@ export default function DQEmailDetails() {
                               const parts = collection.split(".");
                               const last = parts[parts.length - 1];
                               const val = last.trim();
-                              if (val && !normalized.includes(val))
+                              const valLower = val.toLowerCase();
+                              if (val && !normalizedLower.includes(valLower)) {
                                 normalized.push(val);
+                                normalizedLower.push(valLower);
+                              }
                             });
                             const templateHierarchyOrder = normalized;
 
@@ -1784,19 +1790,23 @@ export default function DQEmailDetails() {
                               new Set(mappings.map((m) => m.collection))
                             );
 
-                            // Check if database hierarchy matches template hierarchy
+                            // Check if database hierarchy matches template hierarchy (case-insensitive)
                             const templateHierarchyString =
                               templateHierarchyOrder.join(">");
                             const databaseHierarchy = dqEmail.hierarchy || "";
                             const hierarchyMismatch =
-                              templateHierarchyString !== databaseHierarchy;
+                              templateHierarchyString.toLowerCase() !==
+                              databaseHierarchy.toLowerCase();
 
                             // Use template-based hierarchy order instead of database field
                             const orderedCollections =
                               templateHierarchyOrder.length > 0
-                                ? templateHierarchyOrder.filter((h) =>
-                                    collections.includes(h)
-                                  )
+                                ? templateHierarchyOrder.filter((h) => {
+                                    const hLower = h.toLowerCase();
+                                    return collections.some(
+                                      (c) => c.toLowerCase() === hLower
+                                    );
+                                  })
                                 : collections;
 
                             // Create mapping between collections and ^For directives
@@ -1804,9 +1814,10 @@ export default function DQEmailDetails() {
                               collectionName,
                               level
                             ) => {
-                              // Try to find matching ^For directive
+                              // Try to find matching ^For directive (case-insensitive)
+                              const nameLower = collectionName.toLowerCase();
                               const matchingDirective = forDirectives.find(
-                                (d) => d.collection === collectionName
+                                (d) => d.collection.toLowerCase() === nameLower
                               );
                               if (matchingDirective) {
                                 const directiveIndex =
@@ -1821,8 +1832,10 @@ export default function DQEmailDetails() {
                               collectionName,
                               level = 0
                             ) => {
+                              // Filter mappings with case-insensitive comparison
+                              const nameLower = collectionName.toLowerCase();
                               const collectionMappings = mappings.filter(
-                                (m) => m.collection === collectionName
+                                (m) => m.collection.toLowerCase() === nameLower
                               );
                               const indent = level * 2; // 2rem per level
                               const color = getCollectionColor(

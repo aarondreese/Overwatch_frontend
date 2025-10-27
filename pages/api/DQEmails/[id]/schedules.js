@@ -72,10 +72,14 @@ async function handleGet(req, res) {
       startDate: schedule.activeFrom,
       endDate: schedule.activeTo,
       scheduleDays: schedule.scheduleDays ? schedule.scheduleDays.trim() : null,
-      scheduleHours: schedule.scheduleHours ? schedule.scheduleHours.trim() : null,
+      scheduleHours: schedule.scheduleHours
+        ? schedule.scheduleHours.trim()
+        : null,
       includeBankHols: Boolean(schedule.includeBankHols),
       // Overall enabled status (both schedule and email-schedule must be enabled)
-      isActive: Boolean(schedule.scheduleEnabled && schedule.emailScheduleEnabled),
+      isActive: Boolean(
+        schedule.scheduleEnabled && schedule.emailScheduleEnabled
+      ),
     }));
 
     return res.status(200).json({
@@ -98,14 +102,18 @@ async function handlePut(req, res) {
   const { id } = req.query;
   const { emailScheduleId, enabled } = req.body;
 
-  if (!emailScheduleId || typeof enabled !== 'boolean') {
+  if (!emailScheduleId || typeof enabled !== "boolean") {
     return res.status(400).json({
       success: false,
       message: "Email schedule ID and enabled status are required",
     });
   }
 
-  console.log("PUT request for DQEmail Schedule:", { dqEmailId: id, emailScheduleId, enabled });
+  console.log("PUT request for DQEmail Schedule:", {
+    dqEmailId: id,
+    emailScheduleId,
+    enabled,
+  });
 
   try {
     // Update the DQEmail_Schedule record
@@ -157,7 +165,10 @@ async function handleDelete(req, res) {
     });
   }
 
-  console.log("DELETE request for DQEmail Schedule:", { dqEmailId: id, emailScheduleId });
+  console.log("DELETE request for DQEmail Schedule:", {
+    dqEmailId: id,
+    emailScheduleId,
+  });
 
   try {
     // Delete the DQEmail_Schedule record
@@ -206,7 +217,10 @@ async function handlePost(req, res) {
     });
   }
 
-  console.log("POST request to add DQEmail Schedule:", { dqEmailId: id, scheduleId });
+  console.log("POST request to add DQEmail Schedule:", {
+    dqEmailId: id,
+    scheduleId,
+  });
 
   try {
     // Insert new DQEmail_Schedule record

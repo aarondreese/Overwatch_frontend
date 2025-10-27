@@ -1,4 +1,4 @@
-import { executeQuery } from '@/lib/db';
+import { executeQuery } from "@/lib/db";
 
 export default async function handler(req, res) {
   try {
@@ -7,21 +7,21 @@ export default async function handler(req, res) {
       SELECT * FROM pow.Config
       ORDER BY ID
     `;
-    
+
     const result = await executeQuery(query, {});
-    
+
     res.status(200).json({
       success: true,
-      message: 'All Config data',
+      message: "All Config data",
       data: result.recordset,
-      count: result.recordset.length
+      count: result.recordset.length,
     });
   } catch (error) {
-    console.error('Config data error:', error);
+    console.error("Config data error:", error);
     res.status(500).json({
       success: false,
-      message: 'Failed to get config data',
-      error: error.message
+      message: "Failed to get config data",
+      error: error.message,
     });
   }
 }
