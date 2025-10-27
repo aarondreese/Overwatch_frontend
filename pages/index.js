@@ -41,6 +41,12 @@ const menuItems = [
       "Email notifications and alerts based on data quality check results.",
     link: "./dqemails",
   },
+  {
+    title: "Configuration",
+    description:
+      "Manage application configurations across different environments.",
+    link: "./config",
+  },
 ];
 
 export default function Home() {
