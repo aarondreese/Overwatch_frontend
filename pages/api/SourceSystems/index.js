@@ -28,6 +28,22 @@ export default async function handler(req, res) {
 // GET - List all source systems with their domains and synonyms
 async function handleGet(req, res) {
   const query = `
+    WITH SynonymData AS (
+      SELECT 
+        syn.object_id as synonymId,
+        syn.name as synonymName,
+        synSchema.name as synonymSourceSchema,
+        PARSENAME(syn.base_object_name, 1) as synonymObjectName,
+        PARSENAME(syn.base_object_name, 2) as synonymObjectSchema,
+        PARSENAME(syn.base_object_name, 3) as synonymDatabaseName,
+        PARSENAME(syn.base_object_name, 4) as synonymLinkedServer,
+        matched.ID as sourceSystemId
+      FROM sys.synonyms syn
+      INNER JOIN sys.schemas synSchema ON syn.schema_id = synSchema.schema_id
+      LEFT JOIN pow.SourceSystem matched
+        ON ISNULL(PARSENAME(syn.base_object_name, 4), '') = ISNULL(matched.LinkedServerName, '')
+       AND ISNULL(PARSENAME(syn.base_object_name, 3), '') = ISNULL(matched.DatabaseName, '')
+    )
     SELECT 
       ss.ID as id,
       ss.SystemName as systemName,
@@ -37,22 +53,25 @@ async function handleGet(req, res) {
       ss.DefaultTargetSchema as defaultTargetSchema,
       d.ID as domainId,
       d.DomainName as domainName,
-      s.SystemID as synonymId,
-      s.Synonym as synonymName,
-      s.SourceSchema as synonymSourceSchema,
-      s.object_name as synonymObjectName
+      syn.synonymId,
+      syn.synonymName,
+      syn.synonymSourceSchema,
+      syn.synonymObjectName,
+      syn.synonymObjectSchema,
+      syn.synonymDatabaseName,
+      syn.synonymLinkedServer
     FROM pow.SourceSystem ss
     LEFT JOIN pow.Domain d ON ss.ID = d.SourceSystem_ID
-    LEFT JOIN pow.Synonym s ON ss.ID = s.SourceSystem_Id
-    ORDER BY ss.SystemName, d.DomainName, s.Synonym
+    LEFT JOIN SynonymData syn ON syn.sourceSystemId = ss.ID
+    ORDER BY ss.SystemName, d.DomainName, syn.synonymName
   `;
 
   const result = await executeQuery(query);
-  
+
   // Group domains and synonyms by source system
   const systemsMap = new Map();
-  
-  result.recordset.forEach(row => {
+
+  result.recordset.forEach((row) => {
     if (!systemsMap.has(row.id)) {
       systemsMap.set(row.id, {
         id: row.id,
@@ -62,33 +81,36 @@ async function handleGet(req, res) {
         defaultSourceSchema: row.defaultSourceSchema,
         defaultTargetSchema: row.defaultTargetSchema,
         domains: [],
-        synonyms: []
+        synonyms: [],
       });
     }
-    
+
     const system = systemsMap.get(row.id);
-    
+
     // Add domain if it exists and not already added
-    if (row.domainId && !system.domains.some(d => d.id === row.domainId)) {
+    if (row.domainId && !system.domains.some((d) => d.id === row.domainId)) {
       system.domains.push({
         id: row.domainId,
         domainName: row.domainName,
-        sourceSystemId: row.id
+        sourceSystemId: row.id,
       });
     }
-    
+
     // Add synonym if it exists and not already added
-    if (row.synonymId && !system.synonyms.some(s => s.id === row.synonymId)) {
+    if (row.synonymId && !system.synonyms.some((s) => s.id === row.synonymId)) {
       system.synonyms.push({
         id: row.synonymId,
         synonymName: row.synonymName,
         sourceSchema: row.synonymSourceSchema,
         objectName: row.synonymObjectName,
-        sourceSystemId: row.id
+        objectSchema: row.synonymObjectSchema,
+        objectDb: row.synonymDatabaseName,
+        objectLinkedServer: row.synonymLinkedServer,
+        sourceSystemId: row.id,
       });
     }
   });
-  
+
   const systems = Array.from(systemsMap.values());
   apiResponse.success(res, systems, "Source systems retrieved successfully");
 }
@@ -107,7 +129,7 @@ async function handlePost(req, res) {
     return apiResponse.badRequest(res, "System name is required");
   }
 
-  const query = `EXEC api.usp_AddSourceSystem 
+  const query = `EXEC pow.usp_AddSourceSystem 
     @SystemName = @systemName,
     @LinkedServerName = @linkedServerName,
     @DatabaseName = @databaseName,
@@ -129,12 +151,12 @@ async function handlePost(req, res) {
       apiResponse.created(
         res,
         result.recordset[0],
-        "Source system created successfully"
+        "Source system created successfully",
       );
     } else {
       apiResponse.error(
         res,
-        new Error("Failed to create source system - no data returned")
+        new Error("Failed to create source system - no data returned"),
       );
     }
   } catch (error) {
@@ -142,13 +164,13 @@ async function handlePost(req, res) {
     if (error.message.includes("already exists")) {
       return apiResponse.badRequest(
         res,
-        "A source system with this name already exists"
+        "A source system with this name already exists",
       );
     }
     if (error.message.includes("SystemName is required")) {
       return apiResponse.badRequest(
         res,
-        "System name is required and cannot be empty"
+        "System name is required and cannot be empty",
       );
     }
 
@@ -215,7 +237,7 @@ async function handlePut(req, res) {
   apiResponse.success(
     res,
     updatedRecord.recordset[0],
-    "Source system updated successfully"
+    "Source system updated successfully",
   );
 }
 

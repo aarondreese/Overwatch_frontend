@@ -97,7 +97,7 @@ export default function Sourcesystem() {
         });
       }
     },
-    [resetSourceSystem]
+    [resetSourceSystem],
   );
 
   const resetDomainFormData = useCallback(
@@ -108,7 +108,7 @@ export default function Sourcesystem() {
         DomainName: null,
       });
     },
-    [resetDomain, selectedSystemID]
+    [resetDomain, selectedSystemID],
   );
 
   async function handleSourceSystemFormSubmit(formData) {
@@ -127,25 +127,13 @@ export default function Sourcesystem() {
 
   async function handleSynonymFormSubmit(formData) {
     console.log("in handleSynonymFormSubmit: ", formData);
-    const res = await addSynonym(formData);
-    await fetchdata();
-    setSynonymModalIsOpen(false);
-  }
-
-  const resetSynonymFormData = useCallback(() => {
-    console.log("in Reset Synonym Form Data");
-    resetSynonym({
-      SourceSystemID: selectedSystemID,
-      SynonymName: null,
-      TableName: null,
-      ColumnName: null,
-    });
-  }, [resetSynonym, selectedSystemID]);
-
-  function filterDomains(systemID) {
-    setSelectedSystemID(systemID);
-    // Clear search when changing systems
-    setSynonymSearchTerm("");
+    const result = await addSynonym(formData);
+    if (result.success) {
+      await fetchdata();
+      setSynonymModalIsOpen(false);
+    } else {
+      alert(result.error);
+    }
   }
 
   const selectedSystem = useMemo(() => {
@@ -165,6 +153,23 @@ export default function Sourcesystem() {
     }
   }, [selectedSystemID, systems, resetSourceSystemFormData]);
 
+  const resetSynonymFormData = useCallback(() => {
+    console.log("in Reset Synonym Form Data");
+    resetSynonym({
+      SourceSystemID: selectedSystemID,
+      TargetSchema: selectedSystem?.defaultTargetSchema || null,
+      TargetName: null,
+      SourceSchema: selectedSystem?.defaultSourceSchema || null,
+      SourceName: null,
+    });
+  }, [resetSynonym, selectedSystemID, selectedSystem]);
+
+  function filterDomains(systemID) {
+    setSelectedSystemID(systemID);
+    // Clear search when changing systems
+    setSynonymSearchTerm("");
+  }
+
   // Filter synonyms based on search term
   const filteredSynonyms = useMemo(() => {
     if (!selectedSystem?.synonyms || !synonymSearchTerm.trim()) {
@@ -179,7 +184,7 @@ export default function Sourcesystem() {
           synonym.objectName.toLowerCase().includes(searchLower)) ||
         (synonym.sourceSchema &&
           synonym.sourceSchema.toLowerCase().includes(searchLower)) ||
-        synonym.id.toString().includes(searchLower)
+        synonym.id.toString().includes(searchLower),
     );
   }, [selectedSystem?.synonyms, synonymSearchTerm]);
 
@@ -495,7 +500,7 @@ export default function Sourcesystem() {
                             key={domain.id}
                             onClick={() =>
                               router.push(
-                                `/domain/${domain.id}?from=sourcesystem`
+                                `/domain/${domain.id}?from=sourcesystem`,
                               )
                             }
                             className="hover:bg-gray-50 cursor-pointer transition-colors"
@@ -643,13 +648,7 @@ export default function Sourcesystem() {
                               Synonym Name
                             </th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Schema
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                               Target Object
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Status
                             </th>
                             <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                               Actions
@@ -659,7 +658,7 @@ export default function Sourcesystem() {
                         <tbody className="bg-white divide-y divide-gray-200">
                           {filteredSynonyms.length === 0 ? (
                             <tr>
-                              <td colSpan="5" className="px-6 py-8 text-center">
+                              <td colSpan="3" className="px-6 py-8 text-center">
                                 <div className="text-gray-500">
                                   {synonymSearchTerm ? (
                                     <>
@@ -684,77 +683,24 @@ export default function Sourcesystem() {
                             filteredSynonyms.map((synonym) => (
                               <tr key={synonym.id} className="hover:bg-gray-50">
                                 <td className="px-6 py-4 whitespace-nowrap">
-                                  <div className="flex items-center">
-                                    <div className="h-8 w-8 rounded-full bg-purple-100 flex items-center justify-center mr-3">
-                                      <span className="text-sm font-medium text-purple-600">
-                                        {synonym.synonymName
-                                          .charAt(0)
-                                          .toUpperCase()}
-                                      </span>
-                                    </div>
-                                    <div>
-                                      <div className="text-sm font-medium text-gray-900">
-                                        {synonym.synonymName}
-                                      </div>
-                                      <div className="text-sm text-gray-500">
-                                        ID: {synonym.id}
-                                      </div>
-                                    </div>
+                                  <div className="text-sm font-medium text-gray-900">
+                                    {synonym.sourceSchema}.{synonym.synonymName}
                                   </div>
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap">
-                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                    {synonym.sourceSchema}
-                                  </span>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <div className="text-sm text-gray-900">
-                                    {synonym.objectName && (
-                                      <div className="font-medium">
-                                        {synonym.objectName}
-                                      </div>
-                                    )}
-                                    {synonym.objectSchema &&
-                                      synonym.objectDb && (
-                                        <div className="text-xs text-gray-500">
-                                          {synonym.objectSchema}.
-                                          {synonym.objectDb}
-                                        </div>
-                                      )}
+                                  <div className="text-sm font-medium text-gray-900">
+                                    {synonym.objectSchema && synonym.objectName
+                                      ? `${synonym.objectSchema}.${synonym.objectName}`
+                                      : synonym.objectName || "N/A"}
                                   </div>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                    Active
-                                  </span>
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                  <div className="flex gap-2 justify-end">
-                                    <button
-                                      className="text-blue-600 hover:text-blue-900"
-                                      title="Edit Synonym"
-                                    >
-                                      <PencilSquareIcon className="h-4 w-4" />
-                                    </button>
-                                    <button
-                                      className="text-red-600 hover:text-red-900"
-                                      title="Delete Synonym"
-                                    >
-                                      <svg
-                                        className="h-4 w-4"
-                                        fill="none"
-                                        viewBox="0 0 24 24"
-                                        stroke="currentColor"
-                                      >
-                                        <path
-                                          strokeLinecap="round"
-                                          strokeLinejoin="round"
-                                          strokeWidth={2}
-                                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                                        />
-                                      </svg>
-                                    </button>
-                                  </div>
+                                  <button
+                                    className="text-blue-600 hover:text-blue-900"
+                                    title="Edit Synonym"
+                                  >
+                                    <PencilSquareIcon className="h-4 w-4" />
+                                  </button>
                                 </td>
                               </tr>
                             ))
@@ -808,7 +754,7 @@ export default function Sourcesystem() {
         >
           <form
             onSubmit={handleSubmitDomain((data) =>
-              handleDomainFormSubmit(data)
+              handleDomainFormSubmit(data),
             )}
             className="space-y-4"
           >
@@ -865,7 +811,7 @@ export default function Sourcesystem() {
         >
           <form
             onSubmit={handleSubmitSynonym((data) =>
-              handleSynonymFormSubmit(data)
+              handleSynonymFormSubmit(data),
             )}
             className="space-y-4"
           >
@@ -876,65 +822,91 @@ export default function Sourcesystem() {
             />
             <div>
               <label
-                htmlFor="SynonymName"
+                htmlFor="SourceSchema"
                 className="block text-sm font-medium text-gray-700 mb-1"
               >
-                Synonym Name *
+                Source Object Schema *
               </label>
               <input
                 type="text"
-                id="SynonymName"
+                id="SourceSchema"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Enter synonym name"
-                {...registerSynonym("SynonymName", {
-                  required: "Synonym name is required",
+                placeholder="Enter source object schema"
+                {...registerSynonym("SourceSchema", {
+                  required: "Source object schema is required",
                 })}
               />
-              {errorsSynonym.SynonymName && (
+              {errorsSynonym.SourceSchema && (
                 <p className="mt-1 text-sm text-red-600">
-                  {errorsSynonym.SynonymName.message}
+                  {errorsSynonym.SourceSchema.message}
                 </p>
               )}
             </div>
             <div>
               <label
-                htmlFor="TableName"
+                htmlFor="SourceName"
                 className="block text-sm font-medium text-gray-700 mb-1"
               >
-                Table Name *
+                Source Object Name *
               </label>
               <input
                 type="text"
-                id="TableName"
+                id="SourceName"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Enter target table name"
-                {...registerSynonym("TableName", {
-                  required: "Table name is required",
+                placeholder="Enter source object name"
+                {...registerSynonym("SourceName", {
+                  required: "Source object name is required",
                 })}
               />
-              {errorsSynonym.TableName && (
+              {errorsSynonym.SourceName && (
                 <p className="mt-1 text-sm text-red-600">
-                  {errorsSynonym.TableName.message}
+                  {errorsSynonym.SourceName.message}
                 </p>
               )}
             </div>
             <div>
               <label
-                htmlFor="ColumnName"
+                htmlFor="TargetSchema"
                 className="block text-sm font-medium text-gray-700 mb-1"
               >
-                Column Name
-                <span className="text-xs text-gray-500 ml-2">
-                  (Optional - leave blank for table-level synonym)
-                </span>
+                Target Schema *
               </label>
               <input
                 type="text"
-                id="ColumnName"
+                id="TargetSchema"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Enter target column name (optional)"
-                {...registerSynonym("ColumnName")}
+                placeholder="Enter target schema"
+                {...registerSynonym("TargetSchema", {
+                  required: "Target schema is required",
+                })}
               />
+              {errorsSynonym.TargetSchema && (
+                <p className="mt-1 text-sm text-red-600">
+                  {errorsSynonym.TargetSchema.message}
+                </p>
+              )}
+            </div>
+            <div>
+              <label
+                htmlFor="TargetName"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
+                Target Name *
+              </label>
+              <input
+                type="text"
+                id="TargetName"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Enter target name"
+                {...registerSynonym("TargetName", {
+                  required: "Target name is required",
+                })}
+              />
+              {errorsSynonym.TargetName && (
+                <p className="mt-1 text-sm text-red-600">
+                  {errorsSynonym.TargetName.message}
+                </p>
+              )}
             </div>
             <div className="flex gap-3 pt-4">
               <button
@@ -962,7 +934,7 @@ export default function Sourcesystem() {
         >
           <form
             onSubmit={handleSubmitSourceSystem((data) =>
-              handleSourceSystemFormSubmit(data)
+              handleSourceSystemFormSubmit(data),
             )}
             className="space-y-4"
           >
