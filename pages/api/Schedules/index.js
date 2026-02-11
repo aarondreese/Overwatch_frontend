@@ -247,7 +247,28 @@ async function handleDelete(req, res) {
     return apiResponse(res, 404, false, 'Schedule not found');
   }
 
-  // Delete the schedule
+  // Delete related records first to avoid foreign key constraint violations
+  await executeQuery(
+    'DELETE FROM pow.ScheduleDay WHERE Schedule_ID = @id',
+    { id: parseInt(id) }
+  );
+
+  await executeQuery(
+    'DELETE FROM pow.ScheduleHour WHERE Schedule_ID = @id',
+    { id: parseInt(id) }
+  );
+
+  await executeQuery(
+    'DELETE FROM pow.DQCheck_Schedule WHERE Schedule_ID = @id',
+    { id: parseInt(id) }
+  );
+
+  await executeQuery(
+    'DELETE FROM pow.DQEmail_Schedule WHERE Schedule_ID = @id',
+    { id: parseInt(id) }
+  );
+
+  // Now delete the schedule itself
   await executeQuery(
     'DELETE FROM pow.Schedule WHERE ID = @id',
     { id: parseInt(id) }

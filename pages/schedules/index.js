@@ -137,7 +137,10 @@ export default function Schedules() {
                   event monitoring
                 </p>
               </div>
-              <button className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200 flex items-center gap-2">
+              <button
+                onClick={() => router.push("/schedules/-1")}
+                className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200 flex items-center gap-2"
+              >
                 <PlusCircleIcon className="h-5 w-5" />
                 Add Schedule
               </button>

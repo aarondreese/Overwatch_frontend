@@ -4,6 +4,7 @@ import Head from "next/head";
 import Link from "next/link";
 import {
   getScheduleByID,
+  addSchedule,
   updateSchedule,
   getScheduleDays,
   updateScheduleDays,
@@ -54,8 +55,12 @@ export default function ScheduleDetail() {
   const hours = Array.from({ length: 24 }, (_, i) => i);
 
   useEffect(() => {
-    if (id) {
+    if (id && id !== "-1") {
       fetchSchedule();
+    } else if (id === "-1") {
+      // New schedule - initialize with defaults
+      setLoading(false);
+      setSchedule({ title: "", id: -1 });
     }
   }, [id]);
 
@@ -163,6 +168,11 @@ export default function ScheduleDetail() {
 
   // Check if there are any changes
   function hasChanges() {
+    // For new schedules, any input is considered a change
+    if (id === "-1") {
+      return title.trim() !== "" || selectedDays.length > 0 || selectedHours.length > 0;
+    }
+    
     return (
       title !== originalTitle ||
       activeFrom !== originalActiveFrom ||
@@ -315,28 +325,27 @@ export default function ScheduleDetail() {
     try {
       setSaving(true);
 
-      // Update main schedule
-      const updateDTO = {
-        ID: parseInt(id),
+      const isNewSchedule = id === "-1";
+      let scheduleId = parseInt(id);
+
+      // Prepare schedule DTO
+      const scheduleDTO = {
         Title: title,
-        ActiveFrom: activeFrom
-          ? new Date(activeFrom).toISOString()
-          : schedule.activeFrom,
+        ActiveFrom: activeFrom ? new Date(activeFrom).toISOString() : null,
         ActiveTo: activeTo ? new Date(activeTo).toISOString() : null,
         IsEnabled: isEnabled,
       };
 
-      // Update schedule days
-      const dayMapping = {
-        monday: "Mo",
-        tuesday: "Tu",
-        wednesday: "We",
-        thursday: "Th",
-        friday: "Fr",
-        saturday: "Sa",
-        sunday: "Su",
-      };
+      // Create or update main schedule
+      if (isNewSchedule) {
+        const createdSchedule = await addSchedule(scheduleDTO);
+        scheduleId = createdSchedule.id;
+      } else {
+        scheduleDTO.ID = scheduleId;
+        await updateSchedule(scheduleDTO);
+      }
 
+      // Update schedule days
       const scheduleDaysUpdate = {
         monday: selectedDays.includes("Mo"),
         tuesday: selectedDays.includes("Tu"),
@@ -354,18 +363,17 @@ export default function ScheduleDetail() {
         scheduleHoursArray[hour] = true;
       });
 
-      // Execute all updates in parallel
+      // Execute day and hour updates
       await Promise.all([
-        updateSchedule(updateDTO),
-        updateScheduleDays(parseInt(id), scheduleDaysUpdate),
-        updateScheduleHours(parseInt(id), scheduleHoursArray),
+        updateScheduleDays(scheduleId, scheduleDaysUpdate),
+        updateScheduleHours(scheduleId, scheduleHoursArray),
       ]);
 
-      alert("Schedule updated successfully!");
+      alert(isNewSchedule ? "Schedule created successfully!" : "Schedule updated successfully!");
       router.push("/schedules");
     } catch (error) {
-      console.error("Error updating schedule:", error);
-      alert("Failed to update schedule. Please try again.");
+      console.error("Error saving schedule:", error);
+      alert("Failed to save schedule. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -382,7 +390,7 @@ export default function ScheduleDetail() {
     );
   }
 
-  if (!schedule) {
+  if (!schedule && id !== "-1") {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -401,7 +409,7 @@ export default function ScheduleDetail() {
   return (
     <>
       <Head>
-        <title>{schedule.title} - Schedule Detail</title>
+        <title>{id === "-1" ? "Create New Schedule" : `${schedule.title} - Schedule Detail`}</title>
         <meta name="description" content="Edit schedule details" />
       </Head>
 
@@ -418,7 +426,7 @@ export default function ScheduleDetail() {
                 Back to Schedules
               </Link>
               <h1 className="text-3xl font-bold text-gray-900">
-                Edit Schedule: {schedule.title}
+                {id === "-1" ? "Create New Schedule" : `Edit Schedule: ${schedule.title}`}
               </h1>
             </div>
             <div className="flex items-center space-x-3">
