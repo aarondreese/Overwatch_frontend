@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { XMarkIcon } from "@heroicons/react/24/solid";
 import ToggleSwitch from "./ToggleSwitch";
 
@@ -22,29 +22,13 @@ export default function AddDQCheckModal({ isOpen, onClose, onSuccess }) {
   const [schedules, setSchedules] = useState([]);
   const [loadingData, setLoadingData] = useState(true);
   const [error, setError] = useState("");
+  const allDomainsRef = useRef([]);
 
-  // Reset form when modal opens/closes
   useEffect(() => {
-    if (isOpen) {
-      loadInitialData();
-      setError("");
-    } else {
-      setFormData({
-        functionName: "",
-        domainId: "",
-        isActive: true,
-        explain: "",
-        warningLevel: "",
-        lifetime: "",
-        isInTest: false,
-        schedules: [],
-      });
-      // Reset domains to show all when modal closes
-      setDomains(allDomains);
-    }
-  }, [isOpen]);
+    allDomainsRef.current = allDomains;
+  }, [allDomains]);
 
-  const loadInitialData = async () => {
+  const loadInitialData = useCallback(async () => {
     try {
       setLoadingData(true);
 
@@ -88,7 +72,28 @@ export default function AddDQCheckModal({ isOpen, onClose, onSuccess }) {
     } finally {
       setLoadingData(false);
     }
-  };
+  }, []);
+
+  // Reset form when modal opens/closes
+  useEffect(() => {
+    if (isOpen) {
+      loadInitialData();
+      setError("");
+    } else {
+      setFormData({
+        functionName: "",
+        domainId: "",
+        isActive: true,
+        explain: "",
+        warningLevel: "",
+        lifetime: "",
+        isInTest: false,
+        schedules: [],
+      });
+      // Reset domains to show all when modal closes
+      setDomains(allDomainsRef.current);
+    }
+  }, [isOpen, loadInitialData]);
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;

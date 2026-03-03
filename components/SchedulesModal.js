@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { XMarkIcon, ClockIcon, CheckCircleIcon, XCircleIcon, TrashIcon, PlusIcon } from '@heroicons/react/24/solid';
 import { getDQEmailSchedules, updateDQEmailScheduleStatus, deleteDQEmailSchedule, addDQEmailSchedule, getAvailableSchedules } from '@/lib/client/dqemails';
 import ToggleSwitch from './ToggleSwitch';
@@ -21,18 +21,7 @@ export default function SchedulesModal({
   const [selectedScheduleId, setSelectedScheduleId] = useState('');
   const [addingSchedule, setAddingSchedule] = useState(false);
 
-  useEffect(() => {
-    if (isOpen) {
-      if (!dqEmailId) {
-        setError('DQ Email ID is required');
-        setLoading(false);
-        return;
-      }
-      fetchSchedules();
-    }
-  }, [isOpen, dqEmailId]);
-
-  const fetchSchedules = async () => {
+  const fetchSchedules = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -44,7 +33,18 @@ export default function SchedulesModal({
     } finally {
       setLoading(false);
     }
-  };
+  }, [dqEmailId]);
+
+  useEffect(() => {
+    if (isOpen) {
+      if (!dqEmailId) {
+        setError('DQ Email ID is required');
+        setLoading(false);
+        return;
+      }
+      fetchSchedules();
+    }
+  }, [isOpen, dqEmailId, fetchSchedules]);
 
   const fetchAvailableSchedules = async () => {
     try {

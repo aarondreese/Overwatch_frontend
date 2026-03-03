@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
 import Link from "next/link";
@@ -25,13 +25,7 @@ export default function ScheduleUsage() {
   const [originalChecks, setOriginalChecks] = useState([]);
   const [originalEmails, setOriginalEmails] = useState([]);
 
-  useEffect(() => {
-    if (id) {
-      fetchScheduleUsage();
-    }
-  }, [id]);
-
-  async function fetchScheduleUsage() {
+  const fetchScheduleUsage = useCallback(async () => {
     try {
       setLoading(true);
       
@@ -139,7 +133,13 @@ export default function ScheduleUsage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [id]);
+
+  useEffect(() => {
+    if (id) {
+      fetchScheduleUsage();
+    }
+  }, [id, fetchScheduleUsage]);
 
   function formatDateTime(dateString) {
     if (!dateString) return "Never";

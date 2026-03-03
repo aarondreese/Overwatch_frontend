@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
 import Link from "next/link";
@@ -45,42 +45,7 @@ export default function DQCheckDetail() {
   const [deletingRelationships, setDeletingRelationships] = useState(new Set());
   const [showRunHistoryModal, setShowRunHistoryModal] = useState(false);
 
-  useEffect(() => {
-    if (id) {
-      fetchDQCheck();
-      loadScheduleData();
-    }
-  }, [id]);
-
-  // Update DQ check counts when schedule relationships change
-  useEffect(() => {
-    if (dqCheck && scheduleRelationships.length >= 0) {
-      updateLocalScheduleCounts();
-    }
-  }, [scheduleRelationships]);
-
-  function updateLocalScheduleCounts() {
-    if (!dqCheck) return;
-
-    // Calculate new counts from current relationships
-    const activeCount = scheduleRelationships.filter(
-      (rel) => rel.isEnabled && rel.schedule.isEnabled
-    ).length;
-
-    const inactiveCount = scheduleRelationships.filter(
-      (rel) => !rel.isEnabled || !rel.schedule.isEnabled
-    ).length;
-
-    // Update local DQ check state
-    setDQCheck((prev) => ({
-      ...prev,
-      activeScheduleCount: activeCount,
-      inactiveScheduleCount: inactiveCount,
-      scheduleCount: activeCount, // Keep for backward compatibility
-    }));
-  }
-
-  async function loadScheduleData() {
+  const loadScheduleData = useCallback(async () => {
     if (!id) return;
 
     setLoadingSchedules(true);
@@ -109,9 +74,9 @@ export default function DQCheckDetail() {
     } finally {
       setLoadingSchedules(false);
     }
-  }
+  }, [id]);
 
-  async function fetchDQCheck() {
+  const fetchDQCheck = useCallback(async () => {
     if (!id) {
       console.error("No ID available for fetching DQ check");
       return;
@@ -126,7 +91,42 @@ export default function DQCheckDetail() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [id]);
+
+  const updateLocalScheduleCounts = useCallback(() => {
+    if (!dqCheck) return;
+
+    // Calculate new counts from current relationships
+    const activeCount = scheduleRelationships.filter(
+      (rel) => rel.isEnabled && rel.schedule.isEnabled
+    ).length;
+
+    const inactiveCount = scheduleRelationships.filter(
+      (rel) => !rel.isEnabled || !rel.schedule.isEnabled
+    ).length;
+
+    // Update local DQ check state
+    setDQCheck((prev) => ({
+      ...prev,
+      activeScheduleCount: activeCount,
+      inactiveScheduleCount: inactiveCount,
+      scheduleCount: activeCount, // Keep for backward compatibility
+    }));
+  }, [dqCheck, scheduleRelationships]);
+
+  useEffect(() => {
+    if (id) {
+      fetchDQCheck();
+      loadScheduleData();
+    }
+  }, [id, fetchDQCheck, loadScheduleData]);
+
+  // Update DQ check counts when schedule relationships change
+  useEffect(() => {
+    if (dqCheck && scheduleRelationships.length >= 0) {
+      updateLocalScheduleCounts();
+    }
+  }, [dqCheck, scheduleRelationships, updateLocalScheduleCounts]);
 
   async function handleToggleStatus() {
     if (!dqCheck) return;

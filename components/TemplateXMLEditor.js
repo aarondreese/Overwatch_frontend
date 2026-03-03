@@ -80,7 +80,7 @@ export default function TemplateXMLEditor({
   }, [templateText, formatHtml, htmlTemplate]);
 
   // Parse existing mapRules XML to extract mappings and groupBy settings
-  const parseExistingMappings = (
+  const parseExistingMappings = useCallback((
     mapRulesXml,
     hierarchy,
     viewColumns,
@@ -282,7 +282,7 @@ export default function TemplateXMLEditor({
       console.warn("Could not parse existing mapRules for mappings:", error);
       return { mappings: {}, updatedHierarchy: hierarchy };
     }
-  };
+  }, []);
 
   // Initialize burst and email fields from existing mapRules if available
   useEffect(() => {
@@ -358,10 +358,11 @@ export default function TemplateXMLEditor({
     }
   }, [
     dqEmail?.mapRules,
-    parsedHierarchy.length,
+    parsedHierarchy,
     existingMappingsLoaded,
     mapViewColumns,
     htmlTemplate,
+    parseExistingMappings,
   ]); // Added htmlTemplate
 
   // Debug: Log when parsedHierarchy actually changes
@@ -377,7 +378,7 @@ export default function TemplateXMLEditor({
   }, [parsedHierarchy]);
 
   // Determine if a field is hidden by checking if it appears in the template
-  const isFieldHidden = (templateVar, templateText) => {
+  function isFieldHidden(templateVar, templateText) {
     if (!templateText) return false;
     const variableRegex = /\{\{([^}]+)\}\}/g;
     let match;
@@ -389,7 +390,7 @@ export default function TemplateXMLEditor({
     }
 
     return true; // Not found in template, is hidden
-  };
+  }
 
   // Function to compute diff between two XML strings
   const computeXMLDiff = (originalXML, newXML) => {
@@ -974,6 +975,7 @@ export default function TemplateXMLEditor({
   }, [
     htmlTemplate,
     mapViewColumns,
+    columnMappings,
     burstField,
     emailField,
     dqEmail?.mapRules,
@@ -1152,29 +1154,8 @@ export default function TemplateXMLEditor({
     return availableColumns;
   };
 
-  const handleTemplateChange = useCallback(
-    (newTemplate) => {
-      setHtmlTemplate(newTemplate);
-
-      // Clear existing timeout
-      if (templateParseTimeout) {
-        clearTimeout(templateParseTimeout);
-      }
-
-      // Set new timeout for debounced parsing (300ms as requested)
-      const timeoutId = setTimeout(() => {
-        console.log("Debounced template parsing triggered");
-        // Use functional updates to avoid stale closures and unnecessary re-renders
-        reparseTemplateAndUpdateVisibility(newTemplate);
-      }, 300);
-
-      setTemplateParseTimeout(timeoutId);
-    },
-    [templateParseTimeout]
-  );
-
   // Re-parse template and update field visibility
-  const reparseTemplateAndUpdateVisibility = (templateText) => {
+  const reparseTemplateAndUpdateVisibility = useCallback((templateText) => {
     // Get current state values at the time of execution
     setParsedHierarchy((currentHierarchy) => {
       if (!currentHierarchy.length) return currentHierarchy;
@@ -1277,7 +1258,28 @@ export default function TemplateXMLEditor({
       console.log("Setting updated hierarchy:", updatedHierarchy);
       return updatedHierarchy;
     });
-  };
+  }, [columnMappings]);
+
+  const handleTemplateChange = useCallback(
+    (newTemplate) => {
+      setHtmlTemplate(newTemplate);
+
+      // Clear existing timeout
+      if (templateParseTimeout) {
+        clearTimeout(templateParseTimeout);
+      }
+
+      // Set new timeout for debounced parsing (300ms as requested)
+      const timeoutId = setTimeout(() => {
+        console.log("Debounced template parsing triggered");
+        // Use functional updates to avoid stale closures and unnecessary re-renders
+        reparseTemplateAndUpdateVisibility(newTemplate);
+      }, 300);
+
+      setTemplateParseTimeout(timeoutId);
+    },
+    [templateParseTimeout, reparseTemplateAndUpdateVisibility]
+  );
 
   // Cleanup timeout on unmount
   useEffect(() => {

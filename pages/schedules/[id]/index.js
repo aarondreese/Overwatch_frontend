@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
 import Link from "next/link";
@@ -54,17 +54,7 @@ export default function ScheduleDetail() {
 
   const hours = Array.from({ length: 24 }, (_, i) => i);
 
-  useEffect(() => {
-    if (id && id !== "-1") {
-      fetchSchedule();
-    } else if (id === "-1") {
-      // New schedule - initialize with defaults
-      setLoading(false);
-      setSchedule({ title: "", id: -1 });
-    }
-  }, [id]);
-
-  async function fetchSchedule() {
+  const fetchSchedule = useCallback(async () => {
     try {
       setLoading(true);
 
@@ -137,7 +127,17 @@ export default function ScheduleDetail() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [id]);
+
+  useEffect(() => {
+    if (id && id !== "-1") {
+      fetchSchedule();
+    } else if (id === "-1") {
+      // New schedule - initialize with defaults
+      setLoading(false);
+      setSchedule({ title: "", id: -1 });
+    }
+  }, [id, fetchSchedule]);
 
   function toggleDay(dayCode) {
     setSelectedDays((prev) =>

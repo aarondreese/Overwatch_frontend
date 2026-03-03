@@ -31,7 +31,7 @@ const loopColors = [
     light: "bg-pink-50",
   },
 ];
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
 import Link from "next/link";
@@ -95,56 +95,7 @@ export default function DQEmailDetails() {
   const [templateUsageLoading, setTemplateUsageLoading] = useState(false);
   const [showSchedulesModal, setShowSchedulesModal] = useState(false);
 
-  useEffect(() => {
-    if (id) {
-      fetchDQEmail();
-    }
-  }, [id]);
-
-  // Check template usage when template name changes
-  useEffect(() => {
-    if (dqEmail?.htmlTemplateName) {
-      checkTemplateUsage(dqEmail.htmlTemplateName);
-    } else {
-      setTemplateUsage(null);
-    }
-  }, [dqEmail?.htmlTemplateName]);
-
-  const checkTemplateUsage = async (templateName) => {
-    if (!templateName) return;
-
-    setTemplateUsageLoading(true);
-    try {
-      const usage = await getTemplateUsage(templateName);
-      setTemplateUsage(usage);
-    } catch (err) {
-      console.error("Error checking template usage:", err);
-      setTemplateUsage(null);
-    } finally {
-      setTemplateUsageLoading(false);
-    }
-  };
-
-  const fetchDQEmail = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await getDQEmail(id);
-      setDQEmail(data);
-
-      // If this email uses DQ check + map view approach, fetch additional resources
-      if (data.htmlTemplateName || data.mapView) {
-        fetchEmailResources(data.htmlTemplateName, data.mapView);
-      }
-    } catch (err) {
-      console.error("Error fetching DQ email:", err);
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchEmailResources = async (templateName, mapViewName) => {
+  const fetchEmailResources = useCallback(async (templateName, mapViewName) => {
     if (!templateName && !mapViewName) return;
 
     try {
@@ -168,6 +119,55 @@ export default function DQEmailDetails() {
       });
     } finally {
       setResourcesLoading(false);
+    }
+  }, []);
+
+  const fetchDQEmail = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await getDQEmail(id);
+      setDQEmail(data);
+
+      // If this email uses DQ check + map view approach, fetch additional resources
+      if (data.htmlTemplateName || data.mapView) {
+        fetchEmailResources(data.htmlTemplateName, data.mapView);
+      }
+    } catch (err) {
+      console.error("Error fetching DQ email:", err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [id, fetchEmailResources]);
+
+  useEffect(() => {
+    if (id) {
+      fetchDQEmail();
+    }
+  }, [id, fetchDQEmail]);
+
+  // Check template usage when template name changes
+  useEffect(() => {
+    if (dqEmail?.htmlTemplateName) {
+      checkTemplateUsage(dqEmail.htmlTemplateName);
+    } else {
+      setTemplateUsage(null);
+    }
+  }, [dqEmail?.htmlTemplateName]);
+
+  const checkTemplateUsage = async (templateName) => {
+    if (!templateName) return;
+
+    setTemplateUsageLoading(true);
+    try {
+      const usage = await getTemplateUsage(templateName);
+      setTemplateUsage(usage);
+    } catch (err) {
+      console.error("Error checking template usage:", err);
+      setTemplateUsage(null);
+    } finally {
+      setTemplateUsageLoading(false);
     }
   };
 

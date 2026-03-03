@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { XMarkIcon, ChartBarIcon } from '@heroicons/react/24/solid';
 
 const RunHistoryModal = ({ isOpen, onClose, dqCheckId, dqCheckName }) => {
@@ -6,13 +6,7 @@ const RunHistoryModal = ({ isOpen, onClose, dqCheckId, dqCheckName }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    if (isOpen && dqCheckId) {
-      loadRunHistory();
-    }
-  }, [isOpen, dqCheckId]);
-
-  const loadRunHistory = async () => {
+  const loadRunHistory = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -30,7 +24,13 @@ const RunHistoryModal = ({ isOpen, onClose, dqCheckId, dqCheckName }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [dqCheckId]);
+
+  useEffect(() => {
+    if (isOpen && dqCheckId) {
+      loadRunHistory();
+    }
+  }, [isOpen, dqCheckId, loadRunHistory]);
 
   const maxCount = Math.max(...runHistory.map(r => r.resultCount), 1);
 
