@@ -1,0 +1,46 @@
+Overwatch Local API Runbook (Phase 2.1)
+
+Purpose
+- Run local API with profile-based DB config and strict startup validation.
+
+Default URLs
+- Health: http://127.0.0.1:3333/health
+- Runtime config (redacted): http://127.0.0.1:3333/config
+- Runtime config for profile check: http://127.0.0.1:3333/config?profile=TEST
+- DB ping: http://127.0.0.1:3333/db/ping
+
+Core environment variables
+- LOCAL_API_PORT=3333
+- LOCAL_API_PROFILE=TEST|LIVE
+- LOCAL_API_ALLOWED_PROFILES=TEST,LIVE
+- LOCAL_API_STRICT_CONFIG=true|false
+- LOCAL_API_CONFIG_PATH=<optional path to runtime.json>
+
+Auth modes
+1) local-sql-auth
+- Requires: DB_USER, DB_PASSWORD (or profile-specific TEST_DB_USER/TEST_DB_PASSWORD, LIVE_DB_USER/LIVE_DB_PASSWORD)
+
+2) domain-integrated (phase 2 bridge mode using NTLM credentials)
+- Requires: DB_DOMAIN, DB_USER, DB_PASSWORD (or profile-specific variants)
+
+Profile variable precedence
+1) profile-specific env vars (e.g. TEST_DB_SERVER)
+2) generic env vars (e.g. DB_SERVER)
+3) runtime.json profile values
+4) hardcoded defaults
+
+Strict validation behavior
+- LOCAL_API_STRICT_CONFIG=true (default): startup fails if required settings are missing.
+- LOCAL_API_STRICT_CONFIG=false: startup succeeds but /config returns validationProblems.
+
+Recommended local setup (no AD)
+- LOCAL_API_PROFILE=TEST
+- LOCAL_API_ALLOWED_PROFILES=TEST
+- LOCAL_API_STRICT_CONFIG=true
+- TEST_DB_SERVER, TEST_DB_DATABASE, TEST_DB_USER, TEST_DB_PASSWORD, TEST_DB_PORT
+
+Recommended client setup (domain)
+- LOCAL_API_PROFILE=LIVE (or site-selected)
+- LOCAL_API_ALLOWED_PROFILES configured by deployment policy
+- domain-integrated mode with domain/user/password bridge in phase 2
+- move to service-account execution model in later phases

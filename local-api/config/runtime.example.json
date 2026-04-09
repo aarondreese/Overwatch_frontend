@@ -1,0 +1,21 @@
+{
+  "activeProfile": "TEST",
+  "profiles": {
+    "TEST": {
+      "authMode": "local-sql-auth",
+      "server": "localhost",
+      "database": "GDQC_dev",
+      "port": 1433,
+      "encrypt": false,
+      "trustServerCertificate": true
+    },
+    "LIVE": {
+      "authMode": "domain-integrated",
+      "server": "sql-live.company.local",
+      "database": "GDQC_live",
+      "port": 1433,
+      "encrypt": true,
+      "trustServerCertificate": false
+    }
+  }
+}

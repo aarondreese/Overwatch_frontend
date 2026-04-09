@@ -1,12 +1,20 @@
 const http = require("http");
-const url = require("url");
 const { loadEnvConfig } = require("@next/env");
-const { executeQuery, closeConnection } = require("../lib/db");
+const { executeQuery, closeConnection } = require("./db-client");
+const { getSafeRuntimeConfig, getRuntimeConfig } = require("./runtime-config");
 
 // Load .env.local/.env files so DB config mirrors the current app behavior.
 loadEnvConfig(process.cwd());
 
 const API_PORT = parseInt(process.env.LOCAL_API_PORT || "3333", 10);
+
+try {
+  // Fail fast if runtime profile/auth config is invalid.
+  getRuntimeConfig();
+} catch (error) {
+  console.error(`[local-api] startup configuration error: ${error.message}`);
+  process.exit(1);
+}
 
 function sendJson(res, statusCode, payload) {
   const body = JSON.stringify(payload);
@@ -50,16 +58,68 @@ function handleHealth(res) {
   });
 }
 
+function handleConfig(res) {
+  try {
+    const runtime = getSafeRuntimeConfig();
+    sendJson(res, 200, {
+      success: true,
+      service: "overwatch-local-api",
+      endpoint: "config",
+      data: runtime,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    sendJson(res, 500, {
+      success: false,
+      service: "overwatch-local-api",
+      endpoint: "config",
+      message: error.message,
+      timestamp: new Date().toISOString(),
+    });
+  }
+}
+
+function handleConfigByProfile(res, profileName) {
+  try {
+    const runtime = getSafeRuntimeConfig({ requestedProfile: profileName });
+    sendJson(res, 200, {
+      success: true,
+      service: "overwatch-local-api",
+      endpoint: "config",
+      data: runtime,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    sendJson(res, 400, {
+      success: false,
+      service: "overwatch-local-api",
+      endpoint: "config",
+      message: error.message,
+      timestamp: new Date().toISOString(),
+    });
+  }
+}
+
 const server = http.createServer(async (req, res) => {
   if (req.method === "OPTIONS") {
     sendJson(res, 204, { success: true });
     return;
   }
 
-  const parsed = url.parse(req.url, true);
+  const parsed = new URL(req.url, "http://127.0.0.1");
 
   if (req.method === "GET" && parsed.pathname === "/health") {
     handleHealth(res);
+    return;
+  }
+
+  if (req.method === "GET" && parsed.pathname === "/config") {
+    const profileName = parsed.searchParams.get("profile");
+    if (profileName) {
+      handleConfigByProfile(res, profileName);
+    } else {
+      handleConfig(res);
+    }
     return;
   }
 
