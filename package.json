@@ -5,8 +5,9 @@
   "main": "main.js",
   "homepage": "./",
   "scripts": {
-    "dev": "concurrently \"next dev -p 3000\" \"cross-env ELECTRON_START_URL=http://localhost:3000 npm run electron-dev\"",
-    "electron-dev": "wait-on tcp:3000 && electronmon --watch main.js --watch preload.js .",
+    "dev": "concurrently \"next dev -p 3000\" \"cross-env LOCAL_API_PORT=3333 npm run local-api-dev\" \"cross-env ELECTRON_START_URL=http://localhost:3000 LOCAL_API_URL=http://127.0.0.1:3333 npm run electron-dev\"",
+    "local-api-dev": "node local-api/server.js",
+    "electron-dev": "wait-on tcp:3000 http-get://127.0.0.1:3333/health && electronmon --watch main.js --watch preload.js .",
     "build": "next build && npm run electron-build",
     "electron-build": "cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder",
     "start": "next start",
