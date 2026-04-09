@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "cross-env next dev",
+    "local-api-dev": "node local-api/server.js",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",

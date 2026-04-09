@@ -16,6 +16,7 @@ export default function AddDQCheckModal({ isOpen, onClose, onSuccess }) {
 
   const [loading, setLoading] = useState(false);
   const [availableFunctions, setAvailableFunctions] = useState([]);
+  const [filteredFunctions, setFilteredFunctions] = useState([]);
   const [domains, setDomains] = useState([]);
   const [allDomains, setAllDomains] = useState([]);
   const [sourceSystems, setSourceSystems] = useState([]);
@@ -45,6 +46,7 @@ export default function AddDQCheckModal({ isOpen, onClose, onSuccess }) {
 
       if (functionsData.success) {
         setAvailableFunctions(functionsData.data.available);
+        setFilteredFunctions(functionsData.data.available);
       }
 
       if (sourceSystemsData.success) {
@@ -92,8 +94,94 @@ export default function AddDQCheckModal({ isOpen, onClose, onSuccess }) {
       });
       // Reset domains to show all when modal closes
       setDomains(allDomainsRef.current);
+      setFilteredFunctions([]);
     }
   }, [isOpen, loadInitialData]);
+
+  const applySchemaFilters = useCallback(
+    (nextFunctionName, nextDomainId) => {
+      const selectedDomain = allDomains.find(
+        (domain) => String(domain.id) === String(nextDomainId)
+      );
+      const selectedFunction = availableFunctions.find(
+        (func) => func.functionName === nextFunctionName
+      );
+
+      const selectedDomainSchema = selectedDomain?.sourceSchema || null;
+      const selectedFunctionSchema = selectedFunction?.schemaName || null;
+
+      const nextFilteredDomains = selectedFunctionSchema
+        ? allDomains.filter((domain) => domain.sourceSchema === selectedFunctionSchema)
+        : allDomains;
+
+      const nextFilteredFunctions = selectedDomainSchema
+        ? availableFunctions.filter(
+            (func) => func.schemaName === selectedDomainSchema
+          )
+        : availableFunctions;
+
+      // If both are selected and schemas conflict, clear the field that was not just changed.
+      const conflict =
+        selectedDomainSchema &&
+        selectedFunctionSchema &&
+        selectedDomainSchema !== selectedFunctionSchema;
+
+      let resolvedFunctionName = nextFunctionName;
+      let resolvedDomainId = nextDomainId;
+
+      if (conflict) {
+        // Preserve the user's most recent selection by keeping whichever filter list still contains it.
+        if (
+          selectedFunctionSchema &&
+          nextFilteredDomains.some(
+            (domain) => String(domain.id) === String(nextDomainId)
+          )
+        ) {
+          resolvedFunctionName = "";
+        } else {
+          resolvedDomainId = "";
+        }
+      }
+
+      // If existing selections are not in filtered sets anymore, clear them.
+      if (
+        resolvedFunctionName &&
+        !nextFilteredFunctions.some(
+          (func) => func.functionName === resolvedFunctionName
+        )
+      ) {
+        resolvedFunctionName = "";
+      }
+
+      if (
+        resolvedDomainId &&
+        !nextFilteredDomains.some(
+          (domain) => String(domain.id) === String(resolvedDomainId)
+        )
+      ) {
+        resolvedDomainId = "";
+      }
+
+      setDomains(nextFilteredDomains);
+      setFilteredFunctions(nextFilteredFunctions);
+
+      setFormData((prev) => {
+        if (
+          prev.functionName === resolvedFunctionName &&
+          String(prev.domainId) === String(resolvedDomainId)
+        ) {
+          return prev;
+        }
+
+        return {
+          ...prev,
+          functionName: resolvedFunctionName,
+          domainId: resolvedDomainId,
+        };
+      });
+    },
+    [allDomains, availableFunctions]
+  );
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -105,28 +193,12 @@ export default function AddDQCheckModal({ isOpen, onClose, onSuccess }) {
 
   const handleFunctionChange = (e) => {
     const selectedFunctionName = e.target.value;
-    setFormData((prev) => ({
-      ...prev,
-      functionName: selectedFunctionName,
-      domainId: "", // Reset domain selection when function changes
-    }));
+    applySchemaFilters(selectedFunctionName, formData.domainId);
+  };
 
-    // Filter domains based on the selected function's schema
-    if (selectedFunctionName) {
-      const selectedFunction = availableFunctions.find(
-        (f) => f.functionName === selectedFunctionName
-      );
-      if (selectedFunction) {
-        const functionSchema = selectedFunction.schemaName;
-        const filteredDomains = allDomains.filter(
-          (domain) => domain.sourceSchema === functionSchema
-        );
-        setDomains(filteredDomains);
-      }
-    } else {
-      // If no function selected, show all domains
-      setDomains(allDomains);
-    }
+  const handleDomainChange = (e) => {
+    const selectedDomainId = e.target.value;
+    applySchemaFilters(formData.functionName, selectedDomainId);
   };
 
   const handleScheduleToggle = (scheduleId) => {
@@ -258,14 +330,20 @@ export default function AddDQCheckModal({ isOpen, onClose, onSuccess }) {
                   className="w-full p-3 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="">Select a function...</option>
-                  {availableFunctions.map((func) => (
+                  {filteredFunctions.map((func) => (
                     <option key={func.functionName} value={func.functionName}>
                       {func.fullFunctionName}
                     </option>
                   ))}
                 </select>
                 <p className="mt-1 text-xs text-gray-500">
-                  {availableFunctions.length} available functions found
+                  {formData.domainId
+                    ? `${filteredFunctions.length} functions available for ${
+                        allDomains.find(
+                          (domain) => String(domain.id) === String(formData.domainId)
+                        )?.sourceSchema || "selected"
+                      } schema`
+                    : `${filteredFunctions.length} available functions found`}
                 </p>
               </div>
 
@@ -277,7 +355,7 @@ export default function AddDQCheckModal({ isOpen, onClose, onSuccess }) {
                 <select
                   name="domainId"
                   value={formData.domainId}
-                  onChange={handleInputChange}
+                  onChange={handleDomainChange}
                   required
                   className="w-full p-3 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                 >
