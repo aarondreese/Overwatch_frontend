@@ -13,6 +13,7 @@ import {
 } from "@/lib/client/dqchecks";
 
 import {
+  ArrowLeftIcon,
   CheckCircleIcon,
   XCircleIcon,
   BeakerIcon,
@@ -94,8 +95,6 @@ export default function DQCheckDetail() {
   }, [id]);
 
   const updateLocalScheduleCounts = useCallback(() => {
-    if (!dqCheck) return;
-
     // Calculate new counts from current relationships
     const activeCount = scheduleRelationships.filter(
       (rel) => rel.isEnabled && rel.schedule.isEnabled
@@ -105,14 +104,26 @@ export default function DQCheckDetail() {
       (rel) => !rel.isEnabled || !rel.schedule.isEnabled
     ).length;
 
-    // Update local DQ check state
-    setDQCheck((prev) => ({
-      ...prev,
-      activeScheduleCount: activeCount,
-      inactiveScheduleCount: inactiveCount,
-      scheduleCount: activeCount, // Keep for backward compatibility
-    }));
-  }, [dqCheck, scheduleRelationships]);
+    // Only update when values actually changed to avoid render loops.
+    setDQCheck((prev) => {
+      if (!prev) return prev;
+
+      if (
+        prev.activeScheduleCount === activeCount &&
+        prev.inactiveScheduleCount === inactiveCount &&
+        prev.scheduleCount === activeCount
+      ) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        activeScheduleCount: activeCount,
+        inactiveScheduleCount: inactiveCount,
+        scheduleCount: activeCount, // Keep for backward compatibility
+      };
+    });
+  }, [scheduleRelationships]);
 
   useEffect(() => {
     if (id) {
@@ -123,7 +134,7 @@ export default function DQCheckDetail() {
 
   // Update DQ check counts when schedule relationships change
   useEffect(() => {
-    if (dqCheck && scheduleRelationships.length >= 0) {
+    if (dqCheck) {
       updateLocalScheduleCounts();
     }
   }, [dqCheck, scheduleRelationships, updateLocalScheduleCounts]);
@@ -446,12 +457,14 @@ export default function DQCheckDetail() {
           {/* Header */}
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center space-x-4">
-              <Link
-                href="/dqchecks"
-                className="text-gray-600 hover:text-gray-900 transition-colors"
-              >
-                ← Back to DQ Checks
-              </Link>
+                <button
+                  type="button"
+                  onClick={() => router.push('/dqchecks')}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
+                >
+                <ArrowLeftIcon className="h-5 w-5" />
+                Back to DQ Checks
+                </button>
               <h1 className="text-3xl font-bold text-gray-900">
                 {dqCheck.functionName}
               </h1>
